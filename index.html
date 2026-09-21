@@ -228,13 +228,14 @@
           <div class="panel">
             <div class="panel-head">
               <h2>メニュー選択</h2>
-              <div class="flex gap-2">
+              <div class="flex gap-2 items-center">
                 <select id="pos-category" class="field" style="margin:0; padding:6px; font-size:13px;" onchange="renderMenuGrid()">
                   <option value="">すべて</option>
                   <option value="整体">整体</option>
                   <option value="パーソナル">パーソナル</option>
                   <option value="セミナー等">セミナー等</option>
                 </select>
+                <button class="btn small" onclick="openMenuAddModal()">＋ 追加</button>
               </div>
             </div>
             <div class="panel-body">
@@ -317,6 +318,38 @@
           </div>
 
           <button class="btn primary" style="width:100%; padding:14px; margin-top:20px; font-size:16px;" onclick="processTransaction()">売上を確定する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu Add Modal -->
+    <div id="menu-add-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>新規メニュー登録</h2>
+          <button class="btn small" onclick="closeModal('menu-add-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label>カテゴリ</label>
+            <input type="text" id="menu-add-cat" list="menu-cat-list" placeholder="カテゴリ名を入力または選択">
+            <datalist id="menu-cat-list"></datalist>
+          </div>
+          <div class="field">
+            <label>メニュー名</label>
+            <input type="text" id="menu-add-name" placeholder="例: 特別セッション">
+          </div>
+          <div class="grid-cols-2">
+            <div class="field">
+              <label>所要時間</label>
+              <input type="text" id="menu-add-time" placeholder="例: 60分">
+            </div>
+            <div class="field">
+              <label>価格 (税込)</label>
+              <input type="number" id="menu-add-price">
+            </div>
+          </div>
+          <button class="btn primary" style="width:100%; padding:14px; margin-top:20px; font-size:16px;" onclick="saveNewMenu()">メニューを登録</button>
         </div>
       </div>
     </div>
@@ -754,6 +787,13 @@ function initPos() {
   sel.innerHTML = '<option value="">匿名 (顧客未選択)</option>' + 
     db.customers.map(c => `<option value="${c.id}">${c.name} 様</option>`).join('');
   
+  // Populate categories dynamically
+  const catSel = document.getElementById('pos-category');
+  const cats = [...new Set(db.settings.menus.map(m => m.category).filter(Boolean))];
+  const currentCat = catSel.value;
+  catSel.innerHTML = '<option value="">すべて</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (cats.includes(currentCat)) catSel.value = currentCat;
+  
   renderMenuGrid();
   renderCart();
   document.getElementById('pay-date').value = iso();
@@ -866,6 +906,37 @@ function processTransaction() {
   // Reset cart
   cart = []; document.getElementById('pos-discount').value = 0; renderCart();
   showView('dashboard');
+}
+
+function openMenuAddModal() {
+  const cats = [...new Set(db.settings.menus.map(m => m.category).filter(Boolean))];
+  document.getElementById('menu-cat-list').innerHTML = cats.map(c => `<option value="${c}">`).join('');
+  document.getElementById('menu-add-cat').value = '整体';
+  document.getElementById('menu-add-name').value = '';
+  document.getElementById('menu-add-time').value = '60分';
+  document.getElementById('menu-add-price').value = '';
+  openModal('menu-add-modal');
+}
+
+function saveNewMenu() {
+  const category = document.getElementById('menu-add-cat').value.trim() || 'その他';
+  const name = document.getElementById('menu-add-name').value.trim();
+  const time = document.getElementById('menu-add-time').value.trim() || '未設定';
+  const price = Number(document.getElementById('menu-add-price').value) || 0;
+
+  if(!name) { alert("メニュー名を入力してください"); return; }
+  
+  const newMenu = {
+    id: 'm_' + Date.now(),
+    name, time, price, category
+  };
+  
+  db.settings.menus.push(newMenu);
+  saveDb();
+  
+  closeModal('menu-add-modal');
+  initPos(); // Re-render categories and menu grid
+  alert("新規メニューを登録しました。");
 }
 
 /* ==================== ダッシュボード ロジック ==================== */
