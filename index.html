@@ -166,6 +166,38 @@
   .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .modal-body { padding: 20px; }
 
+  /* ===== Funds View Light Theme ===== */
+  #view-funds {
+    background-color: #f9f9f6 !important;
+    color: #333 !important;
+    border-radius: 12px;
+  }
+  #view-funds h1, #view-funds h2 { color: #222 !important; }
+  #view-funds .panel {
+    background: #ffffff !important;
+    border: 1px solid #eaeaea !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+    border-radius: 12px !important;
+  }
+  #view-funds .panel-head { border-bottom: 1px solid #f0f0f0 !important; }
+  #view-funds .text-sub { color: #666 !important; }
+  #view-funds hr { border-top: 1px solid #eaeaea !important; }
+  #view-funds .btn.primary { background: #d32f2f !important; color: #fff !important; border-color: #d32f2f !important; }
+  #view-funds .btn.primary:hover { background: #b71c1c !important; }
+  
+  /* Tabs */
+  .funds-tabs { display: flex; background: #e0e0e0; border-radius: 8px; padding: 4px; gap: 4px; width: fit-content; margin-bottom: 20px; }
+  .funds-tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; color: #555; transition: 0.2s; }
+  .funds-tab.active { background: #fff; color: #111; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  
+  /* Alert Box */
+  .funds-alert { background: #fffde7; border: 1px solid #ffe082; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+  
+  /* Custom text colors for funds */
+  .funds-text-danger { color: #d32f2f !important; }
+  .funds-text-success { color: #2e7d32 !important; }
+  .funds-bg-success { background-color: #e8f5e9 !important; border: 1px solid #c8e6c9 !important; padding: 16px; border-radius: 8px; }
+
 </style>
 </head>
 <body>
@@ -509,27 +541,123 @@
 
     <!-- 7. 資金・税金 -->
     <section id="view-funds" class="view">
-      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
-        <h1>資金・税金管理</h1>
-        <button class="btn small" onclick="openModal('fund-setting-modal')">設定</button>
+      <div class="flex justify-between items-center" style="margin-bottom: 16px;">
+        <h1>資金・税金ダッシュボード</h1>
+        <div>
+          <select id="funds-year-selector" class="field" style="margin:0; padding:8px; width:120px;" onchange="renderFunds()"></select>
+        </div>
       </div>
-      <div class="grid-cols-2">
+      
+      <div class="funds-tabs">
+        <div id="funds-tab-actual" class="funds-tab active" onclick="setFundsTab('actual')">今年ここまでの実績</div>
+        <div id="funds-tab-predict" class="funds-tab" onclick="setFundsTab('predict')">年間見込み（予測）</div>
+      </div>
+
+      <!-- Upper row: 2 large cards -->
+      <div class="grid-cols-2" style="margin-bottom:20px;">
         <div class="panel">
-          <div class="panel-head"><h2>現預金残高・利用可能資金</h2></div>
-          <div class="panel-body">
-            <div class="text-sub">今月あと使えるお金の目安</div>
-            <div style="font-size:36px; font-weight:bold; margin-bottom:8px;" id="fund-available">¥0</div>
-            <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
-            <div class="flex justify-between" style="margin-bottom:8px;"><span>現預金残高:</span><span id="fund-cash" style="font-weight:bold;">¥0</span></div>
-            <div class="flex justify-between" style="margin-bottom:8px;"><span>未払経費:</span><span id="fund-unpaid-exp" style="color:var(--danger);">¥0</span></div>
-            <div class="flex justify-between" style="margin-bottom:8px;"><span>未納税金等準備額:</span><span id="fund-unpaid-tax" style="color:var(--warning);">¥0</span></div>
-            <div class="flex justify-between"><span>最低運転資金(除外):</span><span id="fund-min-fund">¥0</span></div>
+          <div class="panel-body" style="text-align:center;">
+            <div class="text-sub" style="font-weight:bold;">売上 (<span class="funds-year-label"></span>)</div>
+            <div id="funds-sales" style="font-size:32px; font-weight:bold; margin:8px 0; color:#333;">¥0</div>
+            <div class="text-sub" id="funds-sales-period">対象期間</div>
           </div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h2>年度別 納税準備金 (未納分)</h2></div>
-          <div class="panel-body" id="fund-tax-list">
-            <!-- JS will populate this -->
+          <div class="panel-body" style="text-align:center;">
+            <div class="text-sub" style="font-weight:bold;">経費 (<span class="funds-year-label"></span>)</div>
+            <div id="funds-exp" style="font-size:32px; font-weight:bold; margin:8px 0; color:#333;">¥0</div>
+            <div class="text-sub" id="funds-exp-period">対象期間</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Middle row: 3 cards -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px;">
+        <div class="panel">
+          <div class="panel-body" style="text-align:center;">
+            <div class="text-sub" style="font-weight:bold;">管理上の利益</div>
+            <div id="funds-profit" style="font-size:28px; font-weight:bold; color:#000; margin-top:8px;">¥0</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-body" style="text-align:center;">
+            <div class="text-sub" style="font-weight:bold;">納税準備金目安</div>
+            <div id="funds-tax-reserve" class="funds-text-danger" style="font-size:28px; font-weight:bold; margin-top:8px;">¥0</div>
+          </div>
+        </div>
+        <div class="panel funds-bg-success" style="border:none;">
+          <div class="panel-body" style="text-align:center; padding:0;">
+            <div style="color:#1b5e20; font-size:13px; font-weight:bold;">現在の利用可能額の目安</div>
+            <div id="funds-available" class="funds-text-success" style="font-size:28px; font-weight:bold; margin-top:8px;">¥0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-cols-2" style="margin-bottom:20px;">
+        <!-- Lower left: Tax details -->
+        <div class="panel">
+          <div class="panel-head"><h2><span id="funds-tax-year-label"></span>年の納税に備える目安</h2></div>
+          <div class="panel-body">
+            <div class="text-sub" style="margin-bottom:16px;" id="funds-tax-desc">計算の補足</div>
+            <div id="funds-tax-alert" class="funds-alert" style="display:none;">
+              <div style="font-weight:bold; margin-bottom:4px; color:#f57f17;">未設定または情報不足</div>
+              <div style="font-size:12px; color:#555; margin-bottom:12px;">税金の概算を行うための設定が完了していません。設定画面から情報をご入力ください。</div>
+              <button class="btn small" style="background:#fff; border:1px solid #ccc; color:#333;" onclick="openModal('fund-setting-modal')">設定エリアへ移動</button>
+            </div>
+            
+            <div id="funds-tax-details" style="margin-bottom:16px; font-size:14px; color:#333;">
+              <!-- JS generates -->
+            </div>
+            <div class="flex gap-2">
+              <button class="btn small" style="border:1px solid #ccc;" onclick="openModal('fund-setting-modal')">計算設定を変更</button>
+              <button class="btn small primary" id="btn-pay-tax" onclick="payTaxDialog()">税金の支払いを記録する</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower right: Cash/Unpaid and This Month -->
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="panel">
+            <div class="panel-head"><h2>現預金・未入金</h2></div>
+            <div class="panel-body" style="color:#333;">
+              <div class="flex justify-between items-center" style="margin-bottom:12px;">
+                <span style="font-weight:bold;">現金残高</span>
+                <span id="funds-bal-cash" style="font-weight:bold; font-size:18px;">¥0</span>
+              </div>
+              <div id="funds-bank-list" style="margin-bottom:16px;"></div>
+              
+              <hr style="margin:16px 0;">
+              
+              <div class="flex justify-between items-center text-sub" style="margin-bottom:8px;">
+                <span>未払経費</span>
+                <span id="funds-unpaid-exp" class="funds-text-danger">¥0</span>
+              </div>
+              <div class="flex justify-between items-center text-sub" style="margin-bottom:8px;">
+                <span>カード・QR等の未入金</span>
+                <span id="funds-unpaid-card">¥0</span>
+              </div>
+              <div class="flex justify-between items-center text-sub" style="margin-bottom:16px;">
+                <span>顧客からの未収金</span>
+                <span id="funds-unpaid-cust">¥0</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="panel">
+            <div class="panel-head"><h2>今月のお金 (<span id="funds-this-month-label"></span>)</h2></div>
+            <div class="panel-body">
+              <div class="flex justify-between text-sub" style="margin-bottom:8px;"><span>今月の売上</span><span id="funds-tm-sales">¥0</span></div>
+              <div class="flex justify-between text-sub" style="margin-bottom:8px;"><span>今月の入金</span><span id="funds-tm-pays">¥0</span></div>
+              <div class="flex justify-between text-sub" style="margin-bottom:16px;"><span>今月の経費</span><span id="funds-tm-exp">¥0</span></div>
+              
+              <div style="background:#f5f5f5; padding:12px; border-radius:8px;">
+                <div class="flex justify-between items-center" style="margin-bottom:4px;">
+                  <span style="font-weight:bold; font-size:13px; color:#333;">今月あと使えるお金の目安</span>
+                  <span id="funds-tm-available" class="funds-text-success" style="font-weight:bold; font-size:18px;">¥0</span>
+                </div>
+                <div style="font-size:11px; color:#888;">現預金 - 今月末までの未払・支払予定 - 未納税金 - 最低運転資金</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -540,7 +668,10 @@
       <div class="modal">
         <div class="modal-head"><h2>資金計算・税務の設定</h2><button class="btn small" onclick="closeModal('fund-setting-modal')">✕</button></div>
         <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <div class="field"><label>基準開始残高 (円)</label><input type="number" id="set-fund-initial"></div>
+          <div style="font-weight:bold; margin-bottom:10px;">口座の初期残高設定</div>
+          <div class="field"><label>現金 (初期残高)</label><input type="number" id="set-fund-cash"></div>
+          <div class="field"><label>メイン銀行口座 (初期残高)</label><input type="number" id="set-fund-bank"></div>
+          
           <div class="field"><label>最低運転資金 (円)</label><input type="number" id="set-min-fund" placeholder="常に残しておく金額"></div>
           
           <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
@@ -653,6 +784,7 @@ const KEY_V1 = 'crm-customers-v1';
 const KEY_SET_V1 = 'crm-settings-v1';
 const KEY_V2 = 'crm-data-v2';
 const KEY_V3 = 'crm-data-v3';
+const KEY_V4 = 'crm-data-v4';
 
 let db = {
   version: 3,
@@ -692,18 +824,59 @@ let db = {
       socialInsurance: 0,
       taxableEnterprise: false,
       businessType: '第1種'
-    }
+    },
+    accounts: [
+      { id: 'acc_cash', name: '現金', initialBalance: 0 },
+      { id: 'acc_bank1', name: '銀行口座', initialBalance: 0 }
+    ]
   }
 };
 
 function saveDb() {
-  localStorage.setItem(KEY_V3, JSON.stringify(db));
+  localStorage.setItem(KEY_V4, JSON.stringify(db));
 }
 
 function loadAndMigrate() {
+  const v4Json = localStorage.getItem(KEY_V4);
+  if (v4Json) {
+    try { db = JSON.parse(v4Json); return; } catch(e) { console.error("v4 load failed", e); }
+  }
+  
   const v3Json = localStorage.getItem(KEY_V3);
   if (v3Json) {
-    try { db = JSON.parse(v3Json); return; } catch(e) { console.error("v3 load failed", e); }
+    try {
+      const v3db = JSON.parse(v3Json);
+      console.log("Migrating from v3 to v4...");
+      db.customers = v3db.customers || [];
+      db.transactions = v3db.transactions || [];
+      db.payments = v3db.payments || [];
+      db.expenses = v3db.expenses || [];
+      db.tickets = v3db.tickets || [];
+      db.kartes = v3db.kartes || [];
+      db.tasks = v3db.tasks || [];
+      db.taxPayments = v3db.taxPayments || [];
+      
+      db.settings = { ...db.settings, ...v3db.settings };
+      db.settings.accounts = db.settings.accounts || [
+        { id: 'acc_cash', name: '現金', initialBalance: db.settings.initialFund || 0 },
+        { id: 'acc_bank1', name: 'メイン銀行口座', initialBalance: 0 }
+      ];
+      
+      // Update existing payments and expenses to point to an account based on method
+      db.payments.forEach(p => {
+        if (!p.accountId) {
+          p.accountId = p.method === '現金' ? 'acc_cash' : 'acc_bank1';
+        }
+      });
+      db.expenses.forEach(e => {
+        if (!e.accountId) {
+          e.accountId = e.method === '現金' ? 'acc_cash' : 'acc_bank1';
+        }
+      });
+      
+      saveDb();
+      return;
+    } catch(e) { console.error("v3 migration failed", e); }
   }
 
   const v2Json = localStorage.getItem(KEY_V2);
@@ -841,8 +1014,8 @@ function getProfit(startDate, endDate) {
   return getSales(startDate, endDate) - getExpenses(startDate, endDate, null); // 発生ベース
 }
 
-function getTaxReserve(year) {
-  const profit = getProfit(`${year}-01-01`, `${year}-12-31`);
+function getTaxReserve(year, manualProfit = null, manualSales = null, manualExp = null) {
+  const profit = manualProfit !== null ? manualProfit : getProfit(`${year}-01-01`, `${year}-12-31`);
   if (profit <= 0) return 0;
   
   if (db.settings.taxCalcMode === 'manual') {
@@ -870,8 +1043,10 @@ function getTaxReserve(year) {
   
   let consumptionTax = 0;
   if(s.taxableEnterprise) {
-    const salesTax = getSales(`${year}-01-01`, `${year}-12-31`) * 0.1;
-    const expTax = getExpenses(`${year}-01-01`, `${year}-12-31`, null) * 0.1;
+    const sales = manualSales !== null ? manualSales : getSales(`${year}-01-01`, `${year}-12-31`);
+    const exp = manualExp !== null ? manualExp : getExpenses(`${year}-01-01`, `${year}-12-31`, null);
+    const salesTax = sales * 0.1;
+    const expTax = exp * 0.1;
     consumptionTax = Math.max(0, salesTax - expTax);
   }
   
@@ -879,6 +1054,7 @@ function getTaxReserve(year) {
 }
 
 function getUnpaidTaxes() {
+  if (!db.settings.taxCalcMode) return 0;
   const years = [...new Set(db.transactions.map(t => t.date.slice(0,4)))];
   let totalReserve = 0;
   years.forEach(y => totalReserve += getTaxReserve(y));
@@ -887,7 +1063,8 @@ function getUnpaidTaxes() {
 }
 
 function getCashBalance() {
-  const init = Number(db.settings.initialFund) || 0;
+  const accounts = db.settings.accounts || [{id: 'acc_cash', initialBalance: db.settings.initialFund || 0}];
+  const init = accounts.reduce((s, a) => s + Number(a.initialBalance || 0), 0);
   const pays = getPayments(null, null);
   const paidExp = getExpenses(null, null, '支払済み');
   const paidTaxes = db.taxPayments.reduce((s,t) => s + t.amount, 0);
@@ -922,7 +1099,11 @@ function showView(name){
   }
   if(name === 'analysis') renderAnalysis();
   if(name === 'funds') {
-    document.getElementById('set-fund-initial').value = db.settings.initialFund || 0;
+    const cashObj = db.settings.accounts.find(a => a.id === 'acc_cash');
+    const bankObj = db.settings.accounts.find(a => a.id === 'acc_bank1');
+    document.getElementById('set-fund-cash').value = cashObj ? cashObj.initialBalance : (db.settings.initialFund || 0);
+    document.getElementById('set-fund-bank').value = bankObj ? bankObj.initialBalance : 0;
+    
     document.getElementById('set-min-fund').value = db.settings.minimumOperatingFunds || 0;
     document.getElementById('set-tax-mode').value = db.settings.taxCalcMode || 'auto';
     document.getElementById('set-tax-rate').value = db.settings.taxReserveRate || 20;
@@ -1477,52 +1658,178 @@ function renderAnalysis() {
 }
 
 /* ==================== 資金・税金 ロジック ==================== */
-function renderFunds() {
-  const cash = getCashBalance();
-  const unpaidExp = getExpenses(null, null, '未払');
-  const unpaidTaxes = getUnpaidTaxes();
-  const minFund = Number(db.settings.minimumOperatingFunds) || 0;
-  const avail = getAvailableFunds();
-  
-  document.getElementById('fund-available').textContent = yen(avail);
-  document.getElementById('fund-available').style.color = avail < 0 ? 'var(--danger)' : 'var(--success)';
-  document.getElementById('fund-cash').textContent = yen(cash);
-  document.getElementById('fund-unpaid-exp').textContent = yen(unpaidExp);
-  document.getElementById('fund-unpaid-tax').textContent = yen(unpaidTaxes);
-  document.getElementById('fund-min-fund').textContent = yen(minFund);
-  
-  // Tax List
-  const years = [...new Set(db.transactions.map(t => t.date.slice(0,4)))];
-  const listHtml = years.map(y => {
-    const reserve = getTaxReserve(y);
-    const paid = db.taxPayments.filter(p => p.year === y).reduce((s,p) => s + p.amount, 0);
-    const remain = Math.max(0, reserve - paid);
-    return `
-      <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px dashed var(--border);">
-        <div class="flex justify-between items-center" style="margin-bottom:8px;">
-          <span style="font-weight:bold;">${y}年分 納税準備</span>
-          <span style="color:var(--warning); font-weight:bold;">残: ${yen(remain)}</span>
-        </div>
-        <div class="text-sub flex justify-between">
-          <span>概算額: ${yen(reserve)}</span>
-          <span>納付済: ${yen(paid)}</span>
-        </div>
-        ${remain > 0 ? `<div style="margin-top:8px; text-align:right;"><button class="btn small primary" onclick="payTax('${y}', ${remain})">税金を納付する</button></div>` : ''}
-      </div>
-    `;
-  }).join('');
-  
-  document.getElementById('fund-tax-list').innerHTML = listHtml || '<div class="text-sub">データがありません</div>';
+let currentFundsTab = 'actual';
+
+function setFundsTab(tab) {
+  currentFundsTab = tab;
+  document.querySelectorAll('.funds-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('funds-tab-' + tab).classList.add('active');
+  renderFunds();
 }
 
-function payTax(year, amount) {
-  const input = prompt(`${year}年分の税金をいくら支払いましたか？（最大: ${amount}）`, amount);
+function renderFunds() {
+  const yearSelector = document.getElementById('funds-year-selector');
+  const nowYear = new Date().getFullYear().toString();
+  
+  // Build year list based on transactions + current year
+  if (yearSelector.options.length === 0) {
+    const yearsSet = new Set(db.transactions.map(t => t.date.slice(0,4)));
+    yearsSet.add(nowYear);
+    const years = Array.from(yearsSet).sort().reverse();
+    years.forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y + '年';
+      yearSelector.appendChild(opt);
+    });
+    yearSelector.value = nowYear;
+  }
+  
+  const selectedYear = yearSelector.value;
+  const isCurrentYear = selectedYear === nowYear;
+  
+  // Update all year labels
+  document.querySelectorAll('.funds-year-label').forEach(el => el.textContent = selectedYear);
+  document.getElementById('funds-tax-year-label').textContent = selectedYear;
+  
+  // Basic calculations for the selected year
+  let sales = getSales(selectedYear + '-01-01', selectedYear + '-12-31');
+  let exp = getExpenses(selectedYear + '-01-01', selectedYear + '-12-31', null);
+  
+  // Prediction Logic
+  if (currentFundsTab === 'predict' && isCurrentYear) {
+    const currentMonth = new Date().getMonth() + 1;
+    if (currentMonth < 12) {
+      sales = Math.floor(sales / currentMonth * 12);
+      exp = Math.floor(exp / currentMonth * 12);
+    }
+  }
+  
+  const profit = Math.max(0, sales - exp);
+  
+  document.getElementById('funds-sales').textContent = yen(sales);
+  document.getElementById('funds-exp').textContent = yen(exp);
+  document.getElementById('funds-profit').textContent = yen(profit);
+  
+  const periodText = (currentFundsTab === 'predict' && isCurrentYear) ? '年間見込み額' : '実績';
+  document.getElementById('funds-sales-period').textContent = periodText;
+  document.getElementById('funds-exp-period').textContent = periodText;
+  
+  // Tax Logic
+  const taxMode = db.settings.taxCalcMode;
+  let taxReserve = 0;
+  const taxAlert = document.getElementById('funds-tax-alert');
+  const taxDetails = document.getElementById('funds-tax-details');
+  const taxDesc = document.getElementById('funds-tax-desc');
+  const taxReserveDisplay = document.getElementById('funds-tax-reserve');
+  
+  if (!taxMode) {
+    taxAlert.style.display = 'block';
+    taxDetails.innerHTML = '';
+    taxDesc.textContent = '—';
+    taxReserveDisplay.textContent = '—';
+    taxReserveDisplay.classList.remove('funds-text-danger');
+  } else {
+    taxAlert.style.display = 'none';
+    taxReserve = getTaxReserve(selectedYear, profit, sales, exp);
+    const paid = db.taxPayments.filter(p => p.year === selectedYear).reduce((s,p) => s + p.amount, 0);
+    const remain = Math.max(0, taxReserve - paid);
+    
+    taxReserveDisplay.textContent = yen(remain);
+    taxReserveDisplay.classList.add('funds-text-danger');
+    
+    const detailsHtml = `
+      <div class="flex justify-between" style="margin-bottom:8px;"><span>対象利益</span><span>${yen(profit)}</span></div>
+      <div class="flex justify-between" style="margin-bottom:8px;"><span>概算準備額</span><span>${yen(taxReserve)}</span></div>
+      <div class="flex justify-between" style="margin-bottom:8px;"><span>納付済</span><span>${yen(paid)}</span></div>
+      <hr style="margin:8px 0; border-top:1px solid #ddd;">
+      <div class="flex justify-between" style="font-weight:bold; font-size:16px;"><span>残り確保する金額</span><span class="funds-text-danger">${yen(remain)}</span></div>
+    `;
+    taxDetails.innerHTML = detailsHtml;
+    
+    if (taxMode === 'manual') {
+      taxDesc.textContent = `手動積立 (${db.settings.taxReserveRate || 0}%) に基づく概算`;
+    } else {
+      taxDesc.textContent = `自動計算 (${selectedYear}年の所得に基づく概算)`;
+    }
+  }
+  
+  // Account Balances
+  const cashAccounts = db.settings.accounts || [{id: 'acc_cash', name:'現金', initialBalance:0}, {id:'acc_bank1', name:'メイン銀行口座', initialBalance:0}];
+  const balMap = {};
+  cashAccounts.forEach(a => balMap[a.id] = Number(a.initialBalance || 0));
+  
+  db.payments.forEach(p => { if (balMap[p.accountId] !== undefined) balMap[p.accountId] += (p.type==='入金' ? p.amount : -p.amount); });
+  db.expenses.forEach(e => { if (e.status === '支払済み' && balMap[e.accountId] !== undefined) balMap[e.accountId] -= e.amount; });
+  // Tax payments currently default to cash if no accountId
+  db.taxPayments.forEach(tp => { balMap[tp.accountId || 'acc_cash'] -= tp.amount; });
+  
+  const totalCash = Object.values(balMap).reduce((a,b) => a+b, 0);
+  
+  document.getElementById('funds-bal-cash').textContent = yen(balMap['acc_cash'] || 0);
+  
+  const bankListHtml = cashAccounts.filter(a => a.id !== 'acc_cash').map(a => `
+    <div class="flex justify-between items-center text-sub" style="margin-bottom:8px;">
+      <span>${a.name}</span><span>${yen(balMap[a.id])}</span>
+    </div>
+  `).join('');
+  document.getElementById('funds-bank-list').innerHTML = bankListHtml;
+  
+  // Unpaid
+  const unpaidExpTotal = getExpenses(null, null, '未払');
+  document.getElementById('funds-unpaid-exp').textContent = yen(unpaidExpTotal);
+  
+  const totalSalesToDate = getSales(null, null);
+  const totalPaysToDate = getPayments(null, null);
+  const totalUnpaidCust = Math.max(0, totalSalesToDate - totalPaysToDate);
+  document.getElementById('funds-unpaid-card').textContent = '¥0'; // Future: distinguish card/QR
+  document.getElementById('funds-unpaid-cust').textContent = yen(totalUnpaidCust);
+  
+  // Available Funds
+  const unpaidTaxes = getUnpaidTaxes();
+  const minFund = Number(db.settings.minimumOperatingFunds) || 0;
+  const available = totalCash - unpaidExpTotal - (taxMode ? unpaidTaxes : 0) - minFund;
+  
+  const availEl = document.getElementById('funds-available');
+  if (!taxMode) {
+    availEl.textContent = '計算保留';
+    availEl.style.color = '#333';
+  } else {
+    availEl.textContent = yen(available);
+    availEl.style.color = available < 0 ? '#d32f2f' : '#2e7d32';
+  }
+  
+  // This month logic
+  const nowMonth = iso().slice(0,7);
+  document.getElementById('funds-this-month-label').textContent = nowMonth;
+  const tmSales = getSales(nowMonth+'-01', nowMonth+'-31');
+  const tmPays = getPayments(nowMonth+'-01', nowMonth+'-31');
+  const tmExp = getExpenses(nowMonth+'-01', nowMonth+'-31', null);
+  
+  document.getElementById('funds-tm-sales').textContent = yen(tmSales);
+  document.getElementById('funds-tm-pays').textContent = yen(tmPays);
+  document.getElementById('funds-tm-exp').textContent = yen(tmExp);
+  document.getElementById('funds-tm-available').textContent = availEl.textContent;
+  document.getElementById('funds-tm-available').style.color = availEl.style.color;
+}
+
+function payTaxDialog() {
+  const year = document.getElementById('funds-year-selector').value;
+  const taxReserve = getTaxReserve(year);
+  const paid = db.taxPayments.filter(p => p.year === year).reduce((s,p) => s + p.amount, 0);
+  const remain = Math.max(0, taxReserve - paid);
+  
+  if (remain <= 0) {
+    alert("この年の税金はすでに全額納付済み、または0円です。");
+    return;
+  }
+  
+  const input = prompt(`${year}年分の税金を現金からいくら支払いましたか？\n（残り: ${remain}円）`, remain);
   if (!input) return;
-  const paid = Number(input);
-  if (paid <= 0) return;
+  const amount = Number(input);
+  if (amount <= 0) return;
   
   db.taxPayments.push({
-    id: 'txp_' + Date.now(), year: String(year), date: iso(), amount: paid
+    id: 'txp_' + Date.now(), year: String(year), date: iso(), amount: amount, accountId: 'acc_cash'
   });
   saveDb();
   renderFunds();
@@ -1537,7 +1844,12 @@ function toggleTaxSettings() {
 }
 
 function saveFundSettings() {
-  db.settings.initialFund = Number(document.getElementById('set-fund-initial').value) || 0;
+  const cashObj = db.settings.accounts.find(a => a.id === 'acc_cash');
+  if(cashObj) cashObj.initialBalance = Number(document.getElementById('set-fund-cash').value) || 0;
+  
+  const bankObj = db.settings.accounts.find(a => a.id === 'acc_bank1');
+  if(bankObj) bankObj.initialBalance = Number(document.getElementById('set-fund-bank').value) || 0;
+  
   db.settings.minimumOperatingFunds = Number(document.getElementById('set-min-fund').value) || 0;
   db.settings.taxCalcMode = document.getElementById('set-tax-mode').value;
   db.settings.taxReserveRate = Number(document.getElementById('set-tax-rate').value) || 20;
