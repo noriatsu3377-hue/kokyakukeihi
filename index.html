@@ -621,7 +621,7 @@
       <div class="grid-cols-2" style="margin-bottom:20px;">
         <!-- Lower left: Tax details -->
         <div class="panel">
-          <div class="panel-head"><h2><span id="funds-tax-year-label"></span>年分（翌年納付）の税金に備える目安</h2></div>
+          <div class="panel-head"><h2 id="funds-tax-year-label"></h2></div>
           <div class="panel-body">
             <div class="text-sub" style="margin-bottom:16px;" id="funds-tax-desc">計算の補足</div>
             <div id="funds-tax-alert" class="funds-alert" style="display:none;">
@@ -1904,7 +1904,7 @@ function renderFunds() {
   
   // Update all year labels
   document.querySelectorAll('.funds-year-label').forEach(el => el.textContent = selectedYear);
-  document.getElementById('funds-tax-year-label').textContent = selectedYear;
+  document.getElementById('funds-tax-year-label').textContent = `${Number(selectedYear) + 1}年納付（${selectedYear}年分）の税金に備える目安`;
   
   // Basic calculations for the selected year
   let sales = getSales(selectedYear + '-01-01', selectedYear + '-12-31');
