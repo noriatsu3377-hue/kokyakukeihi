@@ -100,11 +100,15 @@
   .bottom-nav {
     display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height);
     background: var(--sidebar); border-top: 1px solid var(--border);
-    z-index: 100; align-items: center; justify-content: space-around;
+    z-index: 100; align-items: center; justify-content: flex-start;
+    overflow-x: auto; white-space: nowrap;
+    -ms-overflow-style: none; scrollbar-width: none;
   }
+  .bottom-nav::-webkit-scrollbar { display: none; }
   .bottom-nav a {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: var(--text-sub); text-decoration: none; font-size: 10px; width: 20%; height: 100%; cursor: pointer;
+    color: var(--text-sub); text-decoration: none; font-size: 10px; 
+    min-width: 64px; height: 100%; cursor: pointer; flex-shrink: 0;
   }
   .bottom-nav a i { font-size: 18px; margin-bottom: 4px; font-style: normal; }
   .bottom-nav a.active { color: var(--primary); }
@@ -235,6 +239,10 @@
     <a data-nav="expenses" onclick="showView('expenses')"><i>💸</i>経費</a>
     <a data-nav="history" onclick="showView('history')"><i>📜</i>履歴</a>
     <a data-nav="customers" onclick="showView('customers')"><i>👥</i>顧客</a>
+    <a data-nav="analysis" onclick="showView('analysis')"><i>📊</i>分析</a>
+    <a data-nav="funds" onclick="showView('funds')"><i>💰</i>資金</a>
+    <a data-nav="follow" onclick="showView('follow')"><i>📞</i>管理</a>
+    <a data-nav="settings" onclick="showView('settings')"><i>⚙️</i>設定</a>
   </nav>
 
   <main class="main-content">
