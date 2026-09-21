@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>顧客管理システム</title>
+<style>
+  :root {
+    --bg: #f4f5f6;
+    --card: #ffffff;
+    --sidebar: #16202c;
+    --sidebar-active: #24323f;
+    --primary: #14654c;        /* ディープグリーン */
+    --primary-soft: #e7f0ec;
+    --navy: #2a3f57;
+    --text: #1f2933;
+    --text-sub: #6b7684;
+    --border: #e6e8eb;
+    --success: #16794f;
+    --warning: #b8860b;
+    --danger: #b4342a;
+    --warn-bg: #fdf6e3;
+    --warn-tx: #8a6d0b;
+    --danger-bg: #fbeae8;
+    --danger-tx: #9c2b22;
+    --ok-bg: #e7f3ec;
+    --ok-tx: #14654c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== サイドバー ===== */
+  .sidebar {
+    width: 236px;
+    background: var(--sidebar);
+    color: #b9c2cc;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .sidebar .logo {
+    padding: 22px 20px;
+    font-size: 17px;
+    font-weight: bold;
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar .logo .mark {
+    width: 32px; height: 32px;
+    background: var(--primary);
+    border-radius: 9px;
+    display: grid; place-items: center; font-size: 15px;
+  }
+  .sidebar .logo small { display:block; font-weight:normal; font-size:11px; color:#7f8b97; margin-top:2px; }
+  .sidebar nav { flex: 1; padding: 14px 12px; overflow-y:auto; }
+  .sidebar nav a {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 9px;
+    color: #b9c2cc; text-decoration: none; font-size: 14px;
+    margin-bottom: 3px; cursor: pointer; transition: background .15s;
+  }
+  .sidebar nav a:hover { background: var(--sidebar-active); color: #fff; }
+  .sidebar nav a.active { background: var(--primary); color: #fff; font-weight: bold; }
+  .sidebar .foot { padding:14px 18px; font-size:11px; color:#66717d; border-top:1px solid rgba(255,255,255,0.07); }
+
+  /* ===== メイン ===== */
+  .main { flex: 1; padding: 26px 30px; min-width: 0; }
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 22px; gap: 16px; flex-wrap: wrap;
+  }
+  .header h1 { font-size: 21px; letter-spacing:.02em; }
+  .header .date { color: var(--text-sub); font-size: 13px; margin-top: 5px; }
+  .btn {
+    padding: 10px 18px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--card); font-size: 14px; cursor: pointer; font-family: inherit;
+    transition: opacity .15s;
+  }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: bold; }
+  .btn.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+  .btn.small { padding: 6px 12px; font-size: 13px; }
+  .btn:hover { opacity: .88; }
+
+  /* ===== KPI ===== */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--card); border-radius: 14px; padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(20,30,40,0.05); border:1px solid #eef0f2;
+  }
+  .kpi .label { font-size: 12.5px; color: var(--text-sub); margin-bottom: 8px; }
+  .kpi .value { font-size: 27px; font-weight: bold; letter-spacing:.01em; }
+  .kpi .value small { font-size: 14px; font-weight: normal; color: var(--text-sub); }
+  .kpi .sub { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+  .kpi.alert { cursor: pointer; }
+  .kpi.alert:hover { box-shadow: 0 3px 10px rgba(20,30,40,0.09); }
+  .kpi .value.warn { color: var(--warning); }
+  .kpi .value.bad  { color: var(--danger); }
+  .kpi .value.good { color: var(--success); }
+
+  /* 進捗バー（目標達成率） */
+  .goal-bar { height:8px; background:#eef0f2; border-radius:5px; overflow:hidden; margin-top:10px; }
+  .goal-bar > div { height:100%; background:var(--primary); border-radius:5px; }
+
+  /* ===== パネル ===== */
+  .panel {
+    background: var(--card); border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(20,30,40,0.05); border:1px solid #eef0f2;
+    overflow: hidden; margin-bottom: 16px;
+  }
+  .panel-head {
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap;
+  }
+  .panel-head h2 { font-size: 15px; }
+  .panel-head .note { font-size:12px; color:var(--text-sub); }
+  .panel-body { padding: 20px; }
+  .chart-note { font-size:12.5px; color:var(--text-sub); padding:2px 4px; margin-top:10px; line-height:1.6; }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .seg button {
+    border:none; background:#fff; padding:7px 13px; font-size:13px; cursor:pointer; font-family:inherit;
+    color:var(--text-sub); border-left:1px solid var(--border);
+  }
+  .seg button:first-child { border-left:none; }
+  .seg button.active { background:var(--primary); color:#fff; font-weight:bold; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text-sub); margin-top:12px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
+  /* ===== テーブル ===== */
+  .table-wrap { overflow-x:auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 12px 16px; text-align: left; vertical-align: middle; white-space:nowrap; }
+  th { font-size: 12px; color: var(--text-sub); font-weight: normal; background: #f8f9fa; border-bottom: 1px solid var(--border); }
+  td { border-bottom: 1px solid var(--border); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: #f6faf8; }
+  .empty { padding: 44px 20px; text-align: center; color: var(--text-sub); font-size: 14px; }
+
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, #2f7a5f, #14654c);
+    color: #fff; display: grid; place-items: center; font-weight: bold;
+    flex-shrink: 0; font-size: 13px;
+  }
+  .customer-cell { display: flex; align-items: center; gap: 10px; }
+  .customer-cell .kana { font-size: 11px; color: var(--text-sub); }
+
+  .badge {
+    display: inline-block; padding: 3px 11px; border-radius: 999px;
+    font-size: 12px; font-weight: bold; white-space: nowrap;
+  }
+  .badge.kaisu   { background: #e4ebf3; color: #33526e; }
+  .badge.getsu   { background: #e2efe9; color: #14654c; }
+  .badge.tanpatsu{ background: #f2ecdd; color: #8a6d0b; }
+  .badge.warn    { background: var(--warn-bg); color: var(--warn-tx); }
+  .badge.danger  { background: var(--danger-bg); color: var(--danger-tx); }
+  .badge.ok      { background: var(--ok-bg); color: var(--ok-tx); }
+  .badge.muted   { background: #eef0f2; color: #6b7684; }
+  .badge.rank-S  { background:#f3ead4; color:#8a6d0b; }
+  .badge.rank-A  { background:#e2efe9; color:#14654c; }
+  .badge.rank-B  { background:#e4ebf3; color:#33526e; }
+  .badge.rank-C  { background:#eef0f2; color:#6b7684; }
+  .badge.dot { padding-left:8px; }
+  .pill-sm { font-size:11px; padding:2px 8px; }
+
+  .cell-warn { color: var(--warning); font-weight:bold; }
+  .cell-bad  { color: var(--danger); font-weight:bold; }
+
+  /* ===== フォーム ===== */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 15px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 12.5px; color: var(--text-sub); font-weight: bold; }
+  .field input, .field select, .field textarea {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff; color:var(--text);
+  }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid var(--primary); outline-offset: -1px;
+  }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .search-box {
+    padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit; width: 220px; max-width: 100%; background:#fff;
+  }
+
+  /* ===== 詳細 ===== */
+  .detail-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .detail-head .avatar { width: 52px; height: 52px; font-size: 20px; }
+  .detail-head h2 { font-size: 20px; }
+  .detail-head .kana { font-size: 12px; color: var(--text-sub); }
+  .detail-meta { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .stat-row { display:flex; flex-wrap:wrap; gap:20px; }
+  .stat-row .stat { min-width:110px; }
+  .stat .s-label { font-size:11.5px; color:var(--text-sub); }
+  .stat .s-val { font-size:19px; font-weight:bold; margin-top:2px; }
+
+  .ticket-count { font-size: 30px; font-weight: bold; }
+  .ticket-count small { font-size: 13px; font-weight: normal; color: var(--text-sub); }
+
+  .record-item { border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; margin-bottom: 11px; }
+  .record-item .rec-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+  .record-item .rec-date { font-weight: bold; font-size: 14px; }
+  .record-item .rec-body { font-size: 14px; white-space: pre-wrap; line-height: 1.7; }
+  .rec-del { background: none; border: none; color: var(--text-sub); cursor: pointer; font-size: 12px; }
+  .rec-del:hover { color: var(--danger); }
+
+  .karte-item { border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+  .karte-item .k-date { font-weight:bold; font-size:14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .karte-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; font-size:13px; }
+  .karte-grid .kg { line-height:1.6; }
+  .karte-grid .kg b { color:var(--text-sub); font-weight:bold; font-size:11.5px; display:block; }
+  @media (max-width:640px){ .karte-grid { grid-template-columns:1fr; } }
+
+  .task-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .task-item:last-child { border-bottom: none; }
+  .task-item input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; cursor: pointer; }
+  .task-item.done .task-text { text-decoration: line-through; color: var(--text-sub); }
+  .task-text { flex: 1; line-height: 1.6; }
+  .inline-add { display: flex; gap: 8px; margin-top: 12px; }
+  .inline-add input { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+
+  /* 売上バー（横棒） */
+  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 11px; font-size: 13px; }
+  .bar-row .lbl { width: 72px; color: var(--text-sub); flex-shrink: 0; }
+  .bar-track { flex: 1; background: #eef0f2; border-radius: 6px; height: 20px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; background: var(--primary); }
+  .bar-row .amount { width: 100px; text-align: right; font-weight: bold; flex-shrink: 0; }
+
+  .view { display: none; }
+  .view.show { display: block; }
+  .back-link { color: var(--primary); text-decoration: none; font-size: 14px; cursor: pointer; display: inline-block; margin-bottom: 14px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  @media (max-width: 1000px) { .two-col, .grid-2 { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 16px; }
+    .header h1 { font-size:19px; }
+  }
+  svg .barseg:hover { opacity:.82; }
+</style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="logo"><span class="mark">整</span><span>顧客管理システム<small>整体 ＆ パーソナルジム</small></span></div>
+    <nav>
+      <a data-nav="dashboard" class="active" onclick="showView('dashboard')">🏠 ダッシュボード</a>
+      <a data-nav="customers" onclick="showView('customers')">👥 顧客一覧</a>
+      <a data-nav="follow" onclick="showView('follow')">📞 フォロー管理</a>
+      <a data-nav="sales" onclick="showView('sales')">📊 売上・分析</a>
+      <a data-nav="new" onclick="openNewForm()">➕ 新規顧客登録</a>
+    </nav>
+    <div class="foot">店舗運営データはこの端末に安全に保存されます</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ========== ダッシュボード ========== -->
+    <section id="view-dashboard" class="view show">
+      <div class="header">
+        <div>
+          <h1>ダッシュボード</h1>
+          <div class="date" id="today"></div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <label style="font-size:12px; color:var(--text-sub)">今月の売上目標
+            <input type="number" id="sales-goal" class="search-box" style="width:130px; margin-left:6px" placeholder="例）800000" onchange="setSalesGoal()">
+          </label>
+          <button class="btn primary" onclick="openNewForm()">＋ 新規顧客登録</button>
+        </div>
+      </div>
+
+      <!-- 主要KPI -->
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="label">今月の売上</div>
+          <div class="value" id="kpi-sales-month">¥0</div>
+          <div class="sub" id="kpi-sales-total">累計 ¥0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">今月の来店数</div>
+          <div class="value" id="kpi-visits">0</div>
+          <div class="sub" id="kpi-visits-sub">新規 0 / リピート 0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">今月の新規顧客</div>
+          <div class="value" id="kpi-new">0</div>
+          <div class="sub">初回来店ベース</div>
+        </div>
+        <div class="kpi">
+          <div class="label">リピート率</div>
+          <div class="value" id="kpi-repeat">0%</div>
+          <div class="sub">2回以上来店した顧客の割合</div>
+        </div>
+        <div class="kpi">
+          <div class="label">売上目標 達成率</div>
+          <div class="value" id="kpi-goal">–</div>
+          <div class="goal-bar"><div id="goal-bar-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- アラート系KPI -->
+      <div class="kpi-grid">
+        <div class="kpi alert" onclick="showView('customers'); setListFilter('ticketLow')">
+          <div class="label">回数券 残数わずか</div>
+          <div class="value warn" id="kpi-ticket-low">0</div>
+          <div class="sub">残り2回以下（更新提案候補）</div>
+        </div>
+        <div class="kpi alert" onclick="showView('customers'); setListFilter('ticketExpire')">
+          <div class="label">回数券 期限切れ間近</div>
+          <div class="value warn" id="kpi-ticket-expire">0</div>
+          <div class="sub">30日以内に期限 or 期限切れ</div>
+        </div>
+        <div class="kpi alert" onclick="showView('customers'); setListFilter('followNeeded')">
+          <div class="label">要フォロー顧客</div>
+          <div class="value bad" id="kpi-follow">0</div>
+          <div class="sub">14日以上来店なし</div>
+        </div>
+        <div class="kpi alert" onclick="showView('customers'); setListFilter('dormant')">
+          <div class="label">休眠候補</div>
+          <div class="value bad" id="kpi-dormant">0</div>
+          <div class="sub">60日以上来店なし</div>
+        </div>
+        <div class="kpi">
+          <div class="label">今月の退会者</div>
+          <div class="value" id="kpi-cancel">0</div>
+          <div class="sub">退会予定日ベース</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>本日の予約・来店予定</h2><span class="note" id="today-count"></span></div>
+          <div id="today-bookings" class="panel-body"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>フォローが必要な顧客</h2><span class="note">来店間隔が空いている順</span></div>
+          <div id="follow-list-dash" class="panel-body"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>売上推移</h2>
+          <div class="seg" id="dash-period">
+            <button data-p="day" onclick="setDashPeriod('day')">日別</button>
+            <button data-p="week" onclick="setDashPeriod('week')">週別</button>
+            <button data-p="month" class="active" onclick="setDashPeriod('month')">月別</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="dash-sales-chart"></div>
+          <div class="legend" id="dash-sales-legend"></div>
+          <div class="chart-note" id="dash-sales-note"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>更新提案候補（回数券）</h2></div>
+          <div id="renew-list" class="panel-body"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>最近の記録</h2></div>
+          <div id="recent-records" class="panel-body"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 顧客一覧 ========== -->
+    <section id="view-customers" class="view">
+      <div class="header">
+        <div><h1>顧客一覧</h1><div class="date" id="cust-count"></div></div>
+        <button class="btn primary" onclick="openNewForm()">＋ 新規登録</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head" style="gap:10px">
+          <input type="search" id="search" class="search-box" placeholder="名前・主訴で検索…" oninput="renderCustomerList()">
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <select id="filter-status" class="search-box" style="width:auto" onchange="renderCustomerList()">
+              <option value="">すべてのステータス</option>
+            </select>
+            <select id="filter-plan" class="search-box" style="width:auto" onchange="renderCustomerList()">
+              <option value="">すべてのプラン</option>
+              <option value="回数券">回数券</option>
+              <option value="月額制">月額制</option>
+              <option value="単発">単発</option>
+            </select>
+            <select id="filter-rank" class="search-box" style="width:auto" onchange="renderCustomerList()">
+              <option value="">すべてのランク</option>
+              <option value="S">Sランク</option>
+              <option value="A">Aランク</option>
+              <option value="B">Bランク</option>
+              <option value="C">Cランク</option>
+            </select>
+            <select id="filter-alert" class="search-box" style="width:auto" onchange="renderCustomerList()">
+              <option value="">絞り込みなし</option>
+              <option value="followNeeded">要フォロー（14日+）</option>
+              <option value="dormant">休眠候補（60日+）</option>
+              <option value="ticketLow">回数券残わずか</option>
+              <option value="ticketExpire">回数券 期限切れ間近</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>顧客名</th><th>ステータス</th><th>ランク</th><th>プラン</th>
+                <th>残数 / 契約</th><th>最終来店</th><th>次回予定</th><th>累計売上</th><th>フォロー</th>
+              </tr>
+            </thead>
+            <tbody id="customer-rows"></tbody>
+          </table>
+        </div>
+        <div id="customer-empty" class="empty" style="display:none">
+          顧客が登録されていません。「＋ 新規登録」から追加してください。
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== フォロー管理 ========== -->
+    <section id="view-follow" class="view">
+      <div class="header"><div><h1>フォロー管理</h1><div class="date">対応状況・予定を一覧で管理します</div></div></div>
+      <div class="panel">
+        <div class="panel-head"><h2>要対応の顧客</h2><span class="note" id="follow-summary"></span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>顧客名</th><th>ステータス</th><th>最終来店</th><th>経過</th><th>フォロー状況</th><th>フォロー予定</th></tr></thead>
+            <tbody id="follow-rows"></tbody>
+          </table>
+        </div>
+        <div id="follow-empty" class="empty" style="display:none">対応が必要な顧客はいません。</div>
+      </div>
+    </section>
+
+    <!-- ========== 売上・分析 ========== -->
+    <section id="view-sales" class="view">
+      <div class="header">
+        <div><h1>売上・分析</h1><div class="date">期間・分類を切り替えて店舗状況を分析します</div></div>
+        <div class="seg" id="sales-period">
+          <button data-p="day" onclick="setSalesPeriod('day')">日別</button>
+          <button data-p="week" onclick="setSalesPeriod('week')">週別</button>
+          <button data-p="month" class="active" onclick="setSalesPeriod('month')">月別</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="sales-kpi"></div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>売上グラフ</h2>
+          <div class="seg" id="sales-mode">
+            <button data-m="plan" class="active" onclick="setSalesMode('plan')">プラン別</button>
+            <button data-m="service" onclick="setSalesMode('service')">サービス別</button>
+            <button data-m="newrep" onclick="setSalesMode('newrep')">新規/既存別</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="sales-chart"></div>
+          <div class="legend" id="sales-legend"></div>
+          <div class="chart-note" id="sales-note"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>来店数（新規 / リピート）</h2></div>
+          <div class="panel-body">
+            <div id="visit-chart"></div>
+            <div class="legend" id="visit-legend"></div>
+            <div class="chart-note" id="visit-note"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>リピート率の推移</h2></div>
+          <div class="panel-body">
+            <div id="repeat-chart"></div>
+            <div class="chart-note" id="repeat-note"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>顧客数の推移</h2></div>
+          <div class="panel-body">
+            <div id="customer-trend-chart"></div>
+            <div class="legend" id="ct-legend"></div>
+            <div class="chart-note" id="ct-note"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>回数券の状況</h2></div>
+          <div class="panel-body">
+            <div id="ticket-summary"></div>
+            <div class="chart-note" id="ticket-note"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 新規/編集フォーム ========== -->
+    <section id="view-form" class="view">
+      <a class="back-link" onclick="showView('customers')">← 顧客一覧に戻る</a>
+      <div class="header"><h1 id="form-title">新規顧客登録</h1></div>
+      <div class="panel"><div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label>氏名 *</label><input type="text" id="f-name" placeholder="例）山田 太郎"></div>
+          <div class="field"><label>ふりがな</label><input type="text" id="f-kana" placeholder="例）やまだ たろう"></div>
+          <div class="field"><label>電話番号</label><input type="tel" id="f-tel" placeholder="例）090-1234-5678"></div>
+          <div class="field"><label>ステータス</label><select id="f-status"></select></div>
+          <div class="field"><label>プラン *</label>
+            <select id="f-plan" onchange="togglePlanFields()">
+              <option value="回数券">回数券</option>
+              <option value="月額制">月額制</option>
+              <option value="単発">単発（都度払い）</option>
+            </select>
+          </div>
+          <div class="field"><label>次回来店予定日</label><input type="date" id="f-nextvisit"></div>
+
+          <div class="field" id="field-tickets"><label>回数券 残回数</label><input type="number" id="f-tickets" min="0" value="8"></div>
+          <div class="field" id="field-tickets-p"><label>回数券 購入回数（合計）</label><input type="number" id="f-tickets-purchased" min="0" placeholder="例）10"></div>
+          <div class="field" id="field-tickets-e"><label>回数券 有効期限</label><input type="date" id="f-ticket-expiry"></div>
+
+          <div class="field" id="field-monthly"><label>月額料金（円）</label><input type="number" id="f-monthly-fee" min="0" step="1000" placeholder="例）15000"></div>
+          <div class="field" id="field-monthly-start"><label>契約開始日</label><input type="date" id="f-monthly-start"></div>
+          <div class="field" id="field-monthly-next"><label>次回決済日</label><input type="date" id="f-next-payment"></div>
+          <div class="field" id="field-monthly-quota"><label>月の利用可能回数</label><input type="number" id="f-monthly-quota" min="0" placeholder="例）4"></div>
+
+          <div class="field full"><label>主訴（来店のきっかけ・お悩み）</label><textarea id="f-complaint" placeholder="例）慢性的な腰痛。デスクワークで長時間座ると痛みが強くなる。"></textarea></div>
+          <div class="field full"><label>備考</label><textarea id="f-note" placeholder="既往歴、注意事項など"></textarea></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn" onclick="showView('customers')">キャンセル</button>
+          <button class="btn primary" onclick="saveCustomer()">保存する</button>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ========== 顧客詳細 ========== -->
+    <section id="view-detail" class="view">
+      <a class="back-link" onclick="showView('customers')">← 顧客一覧に戻る</a>
+
+      <div class="panel"><div class="panel-body detail-head">
+        <div class="avatar" id="d-avatar"></div>
+        <div>
+          <h2 id="d-name"></h2>
+          <div class="kana" id="d-kana"></div>
+        </div>
+        <div class="detail-meta">
+          <span class="badge" id="d-rank-badge"></span>
+          <span class="badge" id="d-plan-badge"></span>
+          <span class="badge" id="d-status-badge"></span>
+          <button class="btn small" onclick="editCurrentCustomer()">✏️ 編集</button>
+          <button class="btn small danger" onclick="deleteCurrentCustomer()">削除</button>
+        </div>
+      </div></div>
+
+      <!-- サマリー -->
+      <div class="panel"><div class="panel-body">
+        <div class="stat-row">
+          <div class="stat"><div class="s-label">累計売上</div><div class="s-val" id="d-total-sales">¥0</div></div>
+          <div class="stat"><div class="s-label">来店回数</div><div class="s-val" id="d-visit-count">0</div></div>
+          <div class="stat"><div class="s-label">最終来店日</div><div class="s-val" id="d-last-visit">–</div></div>
+          <div class="stat"><div class="s-label">次回予定</div><div class="s-val" id="d-next-visit">–</div></div>
+          <div class="stat"><div class="s-label">来店間隔</div><div class="s-val" id="d-since">–</div></div>
+        </div>
+      </div></div>
+
+      <!-- ステータス・フォロー -->
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>ステータス・来店</h2></div>
+          <div class="panel-body"><div class="form-grid">
+            <div class="field"><label>顧客ステータス</label><select id="d-status" onchange="updateField('status', this.value)"></select></div>
+            <div class="field"><label>次回来店予定日</label><input type="date" id="d-nextvisit" onchange="updateField('nextVisit', this.value)"></div>
+          </div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>フォロー管理</h2></div>
+          <div class="panel-body"><div class="form-grid">
+            <div class="field"><label>フォロー状況</label><select id="d-follow-status" onchange="updateFollow('status', this.value)"></select></div>
+            <div class="field"><label>フォロー予定日</label><input type="date" id="d-follow-date" onchange="updateFollow('date', this.value)"></div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- プラン管理 -->
+      <div class="panel">
+        <div class="panel-head"><h2 id="d-plan-title">プラン管理</h2></div>
+        <div class="panel-body">
+          <!-- 回数券 -->
+          <div id="d-ticket-box">
+            <div class="stat-row" style="margin-bottom:16px">
+              <div class="stat"><div class="s-label">購入回数</div><div class="s-val" id="d-tk-purchased">–</div></div>
+              <div class="stat"><div class="s-label">使用済み</div><div class="s-val" id="d-tk-used">–</div></div>
+              <div class="stat"><div class="s-label">残り回数</div><div class="s-val" id="d-ticket-count">0</div></div>
+              <div class="stat"><div class="s-label">有効期限</div><div class="s-val" id="d-tk-expiry">–</div></div>
+              <div class="stat"><div class="s-label">状態</div><div class="s-val" id="d-tk-alert">–</div></div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+              <button class="btn small primary" onclick="useTicket()">来店で1回消化</button>
+              <div class="inline-add" style="margin:0">
+                <input type="number" id="d-ticket-add" min="1" value="8" style="width:80px">
+                <button class="btn small" onclick="addTickets()">回数券を追加購入</button>
+              </div>
+              <div class="inline-add" style="margin:0">
+                <input type="date" id="d-ticket-expiry-in" style="width:150px" onchange="updateField('ticketExpiry', this.value)">
+                <span style="font-size:12px; color:var(--text-sub); align-self:center">有効期限を設定</span>
+              </div>
+            </div>
+          </div>
+          <!-- 月額 -->
+          <div id="d-monthly-box" style="display:none">
+            <div class="stat-row">
+              <div class="stat"><div class="s-label">月額料金</div><div class="s-val">¥<span id="d-monthly-fee">0</span></div></div>
+              <div class="stat"><div class="s-label">契約開始日</div><div class="s-val" id="d-m-start">–</div></div>
+              <div class="stat"><div class="s-label">次回決済日</div><div class="s-val" id="d-m-next">–</div></div>
+              <div class="stat"><div class="s-label">利用可能回数</div><div class="s-val" id="d-m-quota">–</div></div>
+              <div class="stat"><div class="s-label">今月利用</div><div class="s-val" id="d-m-used">0</div></div>
+              <div class="stat"><div class="s-label">未消化</div><div class="s-val" id="d-m-remain">–</div></div>
+            </div>
+            <div class="form-grid" style="margin-top:16px">
+              <div class="field"><label>支払い状況</label><select id="d-pay-status" onchange="updateField('paymentStatus', this.value)">
+                <option value="">未設定</option><option value="支払い済み">支払い済み</option><option value="未払い">未払い</option><option value="滞納">滞納</option>
+              </select></div>
+              <div class="field"><label>退会予定日</label><input type="date" id="d-cancel-date" onchange="updateField('cancelDate', this.value)"></div>
+            </div>
+          </div>
+          <!-- 単発 -->
+          <div id="d-tanpatsu-box" style="display:none; color:var(--text-sub); font-size:14px">
+            都度払いのお客様です。来店ごとに下の「施術・トレーニング記録」から金額を入力してください。
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <!-- カルテ -->
+          <div class="panel">
+            <div class="panel-head"><h2>カルテ</h2><span class="note">整体・パーソナル共通</span></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="field"><label>記録日</label><input type="date" id="k-date"></div>
+                <div class="field"><label>主訴</label><input type="text" id="k-shuso" placeholder="現在のお悩み"></div>
+                <div class="field"><label>目的</label><input type="text" id="k-mokuteki" placeholder="なりたい状態・目標"></div>
+                <div class="field"><label>既往歴</label><input type="text" id="k-kiou" placeholder="過去のケガ・病歴"></div>
+                <div class="field"><label>痛みの部位</label><input type="text" id="k-itami" placeholder="例）右腰・左肩"></div>
+                <div class="field"><label>姿勢評価</label><input type="text" id="k-shisei" placeholder="例）骨盤前傾・猫背"></div>
+                <div class="field"><label>可動域</label><input type="text" id="k-kadou" placeholder="例）前屈-10cm 肩90°"></div>
+                <div class="field"><label>筋力評価</label><input type="text" id="k-kinryoku" placeholder="例）体幹弱い"></div>
+                <div class="field full"><label>施術内容</label><textarea id="k-seijutsu" placeholder="整体・手技の内容"></textarea></div>
+                <div class="field full"><label>トレーニング内容</label><textarea id="k-training" placeholder="種目・重量・回数など"></textarea></div>
+                <div class="field"><label>注意事項</label><input type="text" id="k-chui" placeholder=""></div>
+                <div class="field"><label>禁忌事項</label><input type="text" id="k-kinki" placeholder="やってはいけない動作など"></div>
+                <div class="field full"><label>次回の方針</label><textarea id="k-houshin" placeholder="次回に向けたプラン"></textarea></div>
+                <div class="field full"><label>スタッフメモ</label><textarea id="k-memo" placeholder="社内共有メモ"></textarea></div>
+              </div>
+              <div style="text-align:right; margin-top:14px"><button class="btn primary" onclick="addKarte()">カルテを追加</button></div>
+              <hr style="border:none; border-top:1px solid var(--border); margin:16px 0">
+              <div id="d-kartes"></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- 記録 -->
+          <div class="panel">
+            <div class="panel-head"><h2>施術・トレーニング記録（売上）</h2></div>
+            <div class="panel-body">
+              <div class="form-grid" style="margin-bottom:12px">
+                <div class="field"><label>日付</label><input type="date" id="d-rec-date"></div>
+                <div class="field"><label>種別</label>
+                  <select id="d-rec-type">
+                    <option value="トレーニング">トレーニング</option>
+                    <option value="施術">施術</option>
+                    <option value="トレーニング＋施術">トレーニング＋施術</option>
+                  </select>
+                </div>
+                <div class="field"><label>サービス分類</label>
+                  <select id="d-rec-category">
+                    <option value="">自動判定</option>
+                    <option value="整体">整体</option>
+                    <option value="パーソナル">パーソナル</option>
+                    <option value="その他">その他</option>
+                  </select>
+                </div>
+                <div class="field"><label>金額（円）</label><input type="number" id="d-rec-amount" min="0" step="100" placeholder="例）6000"></div>
+                <div class="field full"><label>内容</label><textarea id="d-rec-body" placeholder="実施内容、身体の状態、変化など"></textarea></div>
+              </div>
+              <div style="text-align:right"><button class="btn primary" onclick="addRecord()">記録を追加</button></div>
+              <hr style="border:none; border-top:1px solid var(--border); margin:16px 0">
+              <div id="d-records"></div>
+            </div>
+          </div>
+
+          <!-- 今後の課題 -->
+          <div class="panel">
+            <div class="panel-head"><h2>今後の課題</h2></div>
+            <div class="panel-body">
+              <div id="d-tasks"></div>
+              <div class="inline-add">
+                <input type="text" id="d-task-input" placeholder="例）体幹の安定性向上、股関節の可動域改善…">
+                <button class="btn small primary" onclick="addTask()">追加</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+<script>
+/* ==================== データ管理（localStorage・後方互換） ==================== */
+const STORAGE_KEY = 'crm-customers-v1';       // 既存キーを維持
+const SETTINGS_KEY = 'crm-settings-v1';
+let customers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+let currentId = null, editingId = null, editingRecId = null;
+
+const STATUSES = ['継続中','休眠','要フォロー','退会','体験のみ','回数券消化中','月額会員','VIP顧客'];
+const FOLLOW_STATES = ['未対応','LINE送信済み','電話済み','次回提案済み','返信待ち','再来店済み'];
+
+/* 既存データを壊さず、不足フィールドだけ補完するマイグレーション */
+function migrate() {
+  customers.forEach(c => {
+    if (c.status === undefined) c.status = '';
+    if (c.nextVisit === undefined) c.nextVisit = '';
+    if (!Array.isArray(c.karte)) c.karte = [];
+    if (!Array.isArray(c.records)) c.records = [];
+    if (!Array.isArray(c.tasks)) c.tasks = [];
+    if (!c.follow || typeof c.follow !== 'object') c.follow = { status: '', date: '' };
+    if (c.ticketPurchased === undefined) c.ticketPurchased = '';
+    if (c.ticketExpiry === undefined) c.ticketExpiry = '';
+    if (c.monthlyStart === undefined) c.monthlyStart = '';
+    if (c.nextPayment === undefined) c.nextPayment = '';
+    if (c.monthlyQuota === undefined) c.monthlyQuota = '';
+    if (c.paymentStatus === undefined) c.paymentStatus = '';
+    if (c.cancelDate === undefined) c.cancelDate = '';
+    if (c.createdAt === undefined) {
+      const n = Number(String(c.id).replace(/\D/g, ''));
+      c.createdAt = n ? new Date(n).toISOString().slice(0, 10) : '';
+    }
+    c.records.forEach(r => { if (r.category === undefined) r.category = ''; });
+  });
+  persist();
+}
+function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(customers)); }
+function persistSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+function findCurrent() { return customers.find(c => c.id === currentId); }
+
+/* ==================== ユーティリティ ==================== */
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function iso(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtDate(s){ if(!s) return '–'; const d=new Date(s); if(isNaN(d)) return '–'; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function yen(n){ return '¥' + (Number(n)||0).toLocaleString(); }
+function todayISO(){ return iso(new Date()); }
+function daysBetween(a, b){ return Math.floor((new Date(b) - new Date(a)) / 86400000); }
+
+function lastVisitOf(c){ const ds=(c.records||[]).map(r=>r.date).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:''; }
+function firstVisitOf(c){ const ds=(c.records||[]).map(r=>r.date).filter(Boolean).sort(); return ds.length?ds[0]:''; }
+function visitDatesOf(c){ return [...new Set((c.records||[]).map(r=>r.date).filter(Boolean))].sort(); }
+function totalSalesOf(c){ return (c.records||[]).reduce((s,r)=>s+(Number(r.amount)||0),0); }
+function daysSinceVisit(c){ const lv=lastVisitOf(c); return lv ? daysBetween(lv, todayISO()) : null; }
+
+function rankOf(c){ const t=totalSalesOf(c); if(t>=300000)return'S'; if(t>=100000)return'A'; if(t>=50000)return'B'; return'C'; }
+
+/* サービス分類（未設定は種別から推定） */
+function serviceOf(r){
+  if(r.category) return r.category;
+  if(r.type==='施術') return '整体';
+  if(r.type==='トレーニング') return 'パーソナル';
+  if(r.type==='トレーニング＋施術') return 'パーソナル';
+  return 'その他';
+}
+
+/* 来店アラート判定 */
+function visitAlert(c){
+  const d=daysSinceVisit(c);
+  if(d===null) return null;
+  if(d>=60) return {level:'dormant', label:`${d}日`, cls:'cell-bad'};
+  if(d>=30) return {level:'red', label:`${d}日`, cls:'cell-bad'};
+  if(d>=14) return {level:'yellow', label:`${d}日`, cls:'cell-warn'};
+  return {level:'ok', label:`${d}日`, cls:''};
+}
+/* 回数券アラート */
+function ticketAlert(c){
+  if(c.plan!=='回数券') return null;
+  const remain=Number(c.tickets)||0;
+  const exp=c.ticketExpiry;
+  let expState=null;
+  if(exp){ const dd=daysBetween(todayISO(), exp); if(dd<0)expState='expired'; else if(dd<=30)expState='soon'; }
+  return { remain, low: remain<=2, expState, expiry: exp };
+}
+
+/* ==================== 画面切り替え ==================== */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
+  document.getElementById('view-'+name).classList.add('show');
+  document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.toggle('active', a.dataset.nav===name));
+  window.scrollTo(0,0);
+  if(name==='dashboard') renderDashboard();
+  if(name==='customers') renderCustomerList();
+  if(name==='follow') renderFollowView();
+  if(name==='sales') renderSalesView();
+}
+let pendingListFilter='';
+function setListFilter(v){ pendingListFilter=v; }
+
+/* ==================== 汎用チャート（積み上げ棒 SVG） ==================== */
+function stackedBar(elId, buckets, series, fmt){
+  fmt = fmt || (v=>'¥'+v.toLocaleString());
+  const el=document.getElementById(elId);
+  const totals=buckets.map((_,i)=>series.reduce((s,se)=>s+(se.values[i]||0),0));
+  const max=Math.max(1,...totals);
+  const W=680, H=250, padL=54, padR=14, padT=22, padB=34;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const n=buckets.length;
+  const bw=Math.min(46, iw/n*0.62);
+  const x=i=> padL + (iw*(i+0.5)/n);
+  const yv=v=> padT + ih - (v/max)*ih;
+
+  let grid='';
+  for(let g=0; g<=4; g++){ const gv=max*g/4, gy=yv(gv);
+    grid+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#eef0f2"/>`;
+    grid+=`<text x="${padL-8}" y="${gy+4}" text-anchor="end" font-size="10" fill="#9aa4af">${fmt(Math.round(gv))}</text>`;
+  }
+  let bars='';
+  buckets.forEach((b,i)=>{
+    let acc=0;
+    series.forEach(se=>{
+      const v=se.values[i]||0; if(v<=0)return;
+      const h=(v/max)*ih; const y0=yv(acc)-h;
+      bars+=`<rect class="barseg" x="${x(i)-bw/2}" y="${y0.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="${se.color}" rx="2">
+        <title>${b.label}　${se.name}：${fmt(v)}</title></rect>`;
+      acc+=v;
+    });
+    if(totals[i]>0){
+      bars+=`<text x="${x(i)}" y="${(yv(totals[i])-6).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="#3a4652" font-weight="bold">${fmt(totals[i])}</text>`;
+    }
+    bars+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="11" fill="#6b7684">${b.label}</text>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; overflow:visible">${grid}${bars}</svg>`;
+}
+/* 折れ線（複数系列） */
+function multiLine(elId, buckets, series, fmt){
+  fmt=fmt||(v=>v.toLocaleString());
+  const el=document.getElementById(elId);
+  const max=Math.max(1,...series.flatMap(s=>s.values));
+  const W=680,H=250,padL=48,padR=14,padT=22,padB=34;
+  const iw=W-padL-padR, ih=H-padT-padB, n=buckets.length;
+  const x=i=> padL + (n===1?iw/2:iw*i/(n-1));
+  const yv=v=> padT+ih-(v/max)*ih;
+  let grid='';
+  for(let g=0; g<=4; g++){ const gv=max*g/4, gy=yv(gv);
+    grid+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#eef0f2"/>`;
+    grid+=`<text x="${padL-8}" y="${gy+4}" text-anchor="end" font-size="10" fill="#9aa4af">${fmt(Math.round(gv))}</text>`;
+  }
+  let paths='';
+  series.forEach(se=>{
+    const pts=buckets.map((b,i)=>[x(i),yv(se.values[i]||0)]);
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    paths+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    paths+=pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${se.color}"><title>${buckets[i].label}　${se.name}：${fmt(se.values[i]||0)}</title></circle>`).join('');
+  });
+  const labels=buckets.map((b,i)=>`<text x="${x(i).toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="11" fill="#6b7684">${b.label}</text>`).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; overflow:visible">${grid}${paths}${labels}</svg>`;
+}
+function legendHtml(series){
+  return series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
+}
+
+/* ==================== 期間バケット ==================== */
+function weekStart(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function periodBuckets(period){
+  const out=[], today=new Date();
+  if(period==='day'){
+    for(let i=13;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); out.push({key:iso(d), label:`${d.getMonth()+1}/${d.getDate()}`}); }
+  } else if(period==='week'){
+    for(let i=7;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i*7); const m=weekStart(d); out.push({key:iso(m), label:`${m.getMonth()+1}/${m.getDate()}`}); }
+  } else {
+    const b=new Date(today.getFullYear(), today.getMonth(), 1);
+    for(let i=5;i>=0;i--){ const d=new Date(b.getFullYear(), b.getMonth()-i, 1); out.push({key:d.toISOString().slice(0,7), label:`${d.getMonth()+1}月`}); }
+  }
+  return out;
+}
+function bucketKey(dateStr, period){
+  if(!dateStr) return null;
+  if(period==='month') return dateStr.slice(0,7);
+  if(period==='day') return dateStr.slice(0,10);
+  const d=new Date(dateStr); if(isNaN(d)) return null; return iso(weekStart(d));
+}
+function allRecordsFlat(){ return customers.flatMap(c=>(c.records||[]).map(r=>({...r, plan:c.plan, custId:c.id, firstVisit:firstVisitOf(c)}))); }
+
+/* ==================== ダッシュボード ==================== */
+let dashPeriod='month';
+function setDashPeriod(p){ dashPeriod=p; document.querySelectorAll('#dash-period button').forEach(b=>b.classList.toggle('active', b.dataset.p===p)); renderDashSales(); }
+
+function renderDashboard(){
+  const thisMonth=todayISO().slice(0,7);
+  const recs=allRecordsFlat();
+  const totalSales=recs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const monthSales=recs.filter(r=>(r.date||'').slice(0,7)===thisMonth).reduce((s,r)=>s+(Number(r.amount)||0),0);
+  document.getElementById('kpi-sales-month').textContent=yen(monthSales);
+  document.getElementById('kpi-sales-total').textContent='累計 '+yen(totalSales);
+
+  // 今月来店（新規/リピート）
+  let mNew=0, mRep=0;
+  customers.forEach(c=>{
+    const fv=firstVisitOf(c);
+    visitDatesOf(c).forEach(d=>{ if(d.slice(0,7)===thisMonth){ (d===fv?mNew++:mRep++); } });
+  });
+  document.getElementById('kpi-visits').textContent=mNew+mRep;
+  document.getElementById('kpi-visits-sub').textContent=`新規 ${mNew} / リピート ${mRep}`;
+
+  // 今月の新規顧客
+  const newCust=customers.filter(c=>{ const fv=firstVisitOf(c); return (fv?fv:c.createdAt||'').slice(0,7)===thisMonth; }).length;
+  document.getElementById('kpi-new').textContent=newCust;
+
+  // リピート率
+  const visited=customers.filter(c=>visitDatesOf(c).length>=1);
+  const repeated=visited.filter(c=>visitDatesOf(c).length>=2);
+  const rr=visited.length?Math.round(repeated.length/visited.length*100):0;
+  document.getElementById('kpi-repeat').textContent=rr+'%';
+
+  // 売上目標達成率
+  const goal=Number(settings.salesGoal)||0;
+  document.getElementById('sales-goal').value=goal||'';
+  const goalEl=document.getElementById('kpi-goal');
+  if(goal>0){ const pct=Math.round(monthSales/goal*100);
+    goalEl.textContent=pct+'%'; goalEl.className='value '+(pct>=100?'good':pct>=70?'':'warn');
+    document.getElementById('goal-bar-fill').style.width=Math.min(100,pct)+'%';
+  } else { goalEl.textContent='–'; goalEl.className='value'; document.getElementById('goal-bar-fill').style.width='0%'; }
+
+  // アラート系
+  const ticketLow=customers.filter(c=>{const a=ticketAlert(c);return a&&a.low;}).length;
+  const ticketExp=customers.filter(c=>{const a=ticketAlert(c);return a&&(a.expState==='soon'||a.expState==='expired');}).length;
+  const followN=customers.filter(c=>{const a=visitAlert(c);return a&&(a.level==='yellow'||a.level==='red'||a.level==='dormant');}).length;
+  const dormant=customers.filter(c=>{const a=visitAlert(c);return a&&a.level==='dormant';}).length;
+  const cancels=customers.filter(c=>(c.cancelDate||'').slice(0,7)===thisMonth).length;
+  document.getElementById('kpi-ticket-low').textContent=ticketLow;
+  document.getElementById('kpi-ticket-expire').textContent=ticketExp;
+  document.getElementById('kpi-follow').textContent=followN;
+  document.getElementById('kpi-dormant').textContent=dormant;
+  document.getElementById('kpi-cancel').textContent=cancels;
+
+  // 本日の予約
+  const td=todayISO();
+  const todays=customers.filter(c=>c.nextVisit===td);
+  document.getElementById('today-count').textContent=`${todays.length}件`;
+  document.getElementById('today-bookings').innerHTML = todays.length===0
+    ? '<div class="empty">本日の来店予定はありません</div>'
+    : todays.map(c=>rowMini(c, `${c.plan||''}`)).join('');
+
+  // フォローが必要な顧客（経過日数順）
+  const followList=customers.filter(c=>{const a=visitAlert(c);return a&&(a.level==='yellow'||a.level==='red'||a.level==='dormant');})
+    .sort((a,b)=>(daysSinceVisit(b)||0)-(daysSinceVisit(a)||0)).slice(0,6);
+  document.getElementById('follow-list-dash').innerHTML=followList.length===0
+    ? '<div class="empty">フォローが必要な顧客はいません</div>'
+    : followList.map(c=>{const d=daysSinceVisit(c);const cls=d>=60?'cell-bad':d>=30?'cell-bad':'cell-warn';
+        return rowMini(c, `<span class="${cls}">${d}日</span>`);}).join('');
+
+  // 更新提案候補（回数券 残2以下）
+  const renew=customers.filter(c=>{const a=ticketAlert(c);return a&&a.low;}).sort((a,b)=>(Number(a.tickets)||0)-(Number(b.tickets)||0)).slice(0,6);
+  document.getElementById('renew-list').innerHTML=renew.length===0
+    ? '<div class="empty">更新提案候補はいません</div>'
+    : renew.map(c=>rowMini(c, `<span class="badge warn">残 ${Number(c.tickets)||0} 回</span>`)).join('');
+
+  // 最近の記録
+  const recent=recs.map(r=>{const c=customers.find(x=>x.id===r.custId);return{...r,name:c?c.name:''};})
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  document.getElementById('recent-records').innerHTML=recent.length===0
+    ? '<div class="empty">まだ記録がありません</div>'
+    : recent.map(r=>`<div class="record-item" style="cursor:pointer" onclick="openDetail('${r.custId}')">
+        <div class="rec-head"><span class="rec-date">${fmtDate(r.date)}　<strong>${esc(r.name)}</strong> 様
+          ${r.amount?`<span style="color:var(--primary); margin-left:6px">${yen(r.amount)}</span>`:''}</span>
+          <span class="badge ${r.type==='施術'?'getsu':'kaisu'}">${esc(serviceOf(r))}</span></div>
+        <div class="rec-body">${esc(r.body)}</div></div>`).join('');
+
+  renderDashSales();
+}
+function rowMini(c, right){
+  return `<div class="task-item" style="cursor:pointer" onclick="openDetail('${c.id}')">
+    <div class="avatar" style="width:30px;height:30px;font-size:12px">${esc((c.name||'').charAt(0))}</div>
+    <span class="task-text"><strong>${esc(c.name)}</strong> 様
+      <span style="color:var(--text-sub); font-size:12px"> ${esc(c.kana||'')}</span></span>
+    <span style="font-size:13px">${right||''}</span></div>`;
+}
+function renderDashSales(){
+  const buckets=periodBuckets(dashPeriod);
+  const recs=allRecordsFlat();
+  const planColors={'回数券':'#33526e','月額制':'#2f7a5f','単発':'#b08d4f'};
+  const series=Object.keys(planColors).map(p=>({name:p, color:planColors[p],
+    values:buckets.map(b=>recs.filter(r=>r.plan===p&&bucketKey(r.date,dashPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0))}));
+  stackedBar('dash-sales-chart', buckets, series);
+  document.getElementById('dash-sales-legend').innerHTML=legendHtml(series);
+  // 解説
+  const cur=buckets[buckets.length-1], prev=buckets[buckets.length-2];
+  const sum=b=>recs.filter(r=>bucketKey(r.date,dashPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const notes=[];
+  if(cur&&prev){ const cv=sum(cur), pv=sum(prev);
+    if(pv>0){ const diff=Math.round((cv-pv)/pv*100); notes.push(`直近は前期間より売上が${diff>=0?'約'+diff+'%増加':'約'+Math.abs(diff)+'%減少'}しています。`); }
+  }
+  const followN=customers.filter(c=>{const a=visitAlert(c);return a&&(a.level==='yellow'||a.level==='red'||a.level==='dormant');}).length;
+  if(followN>0) notes.push(`14日以上来店していない顧客が${followN}名います。`);
+  const low=customers.filter(c=>{const a=ticketAlert(c);return a&&a.low;}).length;
+  if(low>0) notes.push(`回数券の残数が2回以下の顧客が${low}名います。`);
+  document.getElementById('dash-sales-note').textContent=notes.join('　');
+}
+
+/* ==================== 顧客一覧 ==================== */
+function populateStatusSelects(){
+  const opts='<option value="">未設定</option>'+STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('f-status').innerHTML=opts;
+  document.getElementById('d-status').innerHTML=opts;
+  document.getElementById('filter-status').innerHTML='<option value="">すべてのステータス</option>'+STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('d-follow-status').innerHTML='<option value="">未設定</option>'+FOLLOW_STATES.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+function renderCustomerList(){
+  if(pendingListFilter){ document.getElementById('filter-alert').value=pendingListFilter; pendingListFilter=''; }
+  const q=(document.getElementById('search').value||'').trim();
+  const fStatus=document.getElementById('filter-status').value;
+  const fPlan=document.getElementById('filter-plan').value;
+  const fRank=document.getElementById('filter-rank').value;
+  const fAlert=document.getElementById('filter-alert').value;
+
+  const list=customers.filter(c=>{
+    if(fStatus && c.status!==fStatus) return false;
+    if(fPlan && c.plan!==fPlan) return false;
+    if(fRank && rankOf(c)!==fRank) return false;
+    if(q && !((c.name||'')+(c.kana||'')+(c.complaint||'')).includes(q)) return false;
+    if(fAlert){
+      const va=visitAlert(c), ta=ticketAlert(c);
+      if(fAlert==='followNeeded' && !(va&&(va.level==='yellow'||va.level==='red'||va.level==='dormant'))) return false;
+      if(fAlert==='dormant' && !(va&&va.level==='dormant')) return false;
+      if(fAlert==='ticketLow' && !(ta&&ta.low)) return false;
+      if(fAlert==='ticketExpire' && !(ta&&(ta.expState==='soon'||ta.expState==='expired'))) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('cust-count').textContent=`全 ${customers.length} 名中 ${list.length} 名を表示`;
+  const tbody=document.getElementById('customer-rows');
+  document.getElementById('customer-empty').style.display=list.length===0?'':'none';
+
+  tbody.innerHTML=list.map(c=>{
+    const lv=lastVisitOf(c), va=visitAlert(c);
+    const rank=rankOf(c);
+    let planInfo, planClass;
+    if(c.plan==='回数券'){ planClass='kaisu'; const n=Number(c.tickets)||0;
+      planInfo = n<=2 ? `<span class="badge warn">残 ${n} 回</span>` : `残 ${n} 回`;
+    } else if(c.plan==='月額制'){ planClass='getsu'; planInfo=c.monthlyFee?`${yen(c.monthlyFee)} / 月`:'契約中'; }
+    else { planClass='tanpatsu'; planInfo='都度払い'; }
+    const statusBadge=c.status?`<span class="badge muted">${esc(c.status)}</span>`:'<span style="color:var(--text-sub)">–</span>';
+    const followBadge=c.follow&&c.follow.status?`<span class="badge ${c.follow.status==='未対応'||c.follow.status==='返信待ち'?'warn':'ok'} pill-sm">${esc(c.follow.status)}</span>`:'<span style="color:var(--text-sub)">–</span>';
+    return `<tr onclick="openDetail('${c.id}')">
+      <td><div class="customer-cell"><div class="avatar">${esc((c.name||'').charAt(0))}</div>
+        <div>${esc(c.name)}<div class="kana">${esc(c.kana||'')}</div></div></div></td>
+      <td>${statusBadge}</td>
+      <td><span class="badge rank-${rank}">${rank}</span></td>
+      <td><span class="badge ${planClass}">${esc(c.plan||'')}</span></td>
+      <td>${planInfo}</td>
+      <td class="${va?va.cls:''}">${fmtDate(lv)}${va&&va.level!=='ok'?`<br><span style="font-size:11px">${va.label}経過</span>`:''}</td>
+      <td>${fmtDate(c.nextVisit)}</td>
+      <td>${yen(totalSalesOf(c))}</td>
+      <td>${followBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ==================== フォロー管理ビュー ==================== */
+function renderFollowView(){
+  const list=customers.filter(c=>{
+    const va=visitAlert(c);
+    const needsByVisit=va&&(va.level==='yellow'||va.level==='red'||va.level==='dormant');
+    const needsByStatus=c.follow&&(c.follow.status==='未対応'||c.follow.status==='返信待ち');
+    const hasSchedule=c.follow&&c.follow.date;
+    return needsByVisit||needsByStatus||hasSchedule;
+  }).sort((a,b)=>(daysSinceVisit(b)||0)-(daysSinceVisit(a)||0));
+  document.getElementById('follow-summary').textContent=`${list.length}名`;
+  document.getElementById('follow-empty').style.display=list.length===0?'':'none';
+  document.getElementById('follow-rows').innerHTML=list.map(c=>{
+    const d=daysSinceVisit(c); const cls=d===null?'':d>=30?'cell-bad':d>=14?'cell-warn':'';
+    return `<tr onclick="openDetail('${c.id}')">
+      <td><div class="customer-cell"><div class="avatar" style="width:30px;height:30px;font-size:12px">${esc((c.name||'').charAt(0))}</div><div>${esc(c.name)}</div></div></td>
+      <td>${c.status?`<span class="badge muted">${esc(c.status)}</span>`:'–'}</td>
+      <td>${fmtDate(lastVisitOf(c))}</td>
+      <td class="${cls}">${d===null?'–':d+'日'}</td>
+      <td>${c.follow&&c.follow.status?`<span class="badge ${c.follow.status==='未対応'||c.follow.status==='返信待ち'?'warn':'ok'} pill-sm">${esc(c.follow.status)}</span>`:'<span class="badge danger pill-sm">未対応</span>'}</td>
+      <td>${fmtDate(c.follow&&c.follow.date)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ==================== 売上・分析ビュー ==================== */
+let salesPeriod='month', salesMode='plan';
+function setSalesPeriod(p){ salesPeriod=p; document.querySelectorAll('#sales-period button').forEach(b=>b.classList.toggle('active', b.dataset.p===p)); renderSalesView(); }
+function setSalesMode(m){ salesMode=m; document.querySelectorAll('#sales-mode button').forEach(b=>b.classList.toggle('active', b.dataset.m===m)); renderSalesChart(); }
+
+function renderSalesView(){
+  const buckets=periodBuckets(salesPeriod);
+  const recs=allRecordsFlat();
+  // KPIカード
+  const totalSales=recs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const inRange=r=>buckets.some(b=>b.key===bucketKey(r.date,salesPeriod));
+  const rangeRecs=recs.filter(inRange);
+  const rangeSales=rangeRecs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const seijutsu=rangeRecs.filter(r=>serviceOf(r)==='整体').reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const personal=rangeRecs.filter(r=>serviceOf(r)==='パーソナル').reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const kpi=[
+    ['期間内の総売上', yen(rangeSales), '表示中の全期間合計'],
+    ['整体 売上', yen(seijutsu), '期間内'],
+    ['パーソナル 売上', yen(personal), '期間内'],
+    ['累計売上', yen(totalSales), '全期間'],
+  ];
+  document.getElementById('sales-kpi').innerHTML=kpi.map(k=>`<div class="kpi"><div class="label">${k[0]}</div><div class="value" style="font-size:23px">${k[1]}</div><div class="sub">${k[2]}</div></div>`).join('');
+
+  renderSalesChart();
+  renderVisitChart();
+  renderRepeatChart();
+  renderCustomerTrend();
+  renderTicketSummary();
+}
+function renderSalesChart(){
+  const buckets=periodBuckets(salesPeriod);
+  const recs=allRecordsFlat();
+  let series;
+  if(salesMode==='plan'){
+    const cols={'回数券':'#33526e','月額制':'#2f7a5f','単発':'#b08d4f'};
+    series=Object.keys(cols).map(p=>({name:p,color:cols[p],
+      values:buckets.map(b=>recs.filter(r=>r.plan===p&&bucketKey(r.date,salesPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0))}));
+  } else if(salesMode==='service'){
+    const cols={'整体':'#2f7a5f','パーソナル':'#33526e','その他':'#8a97a5'};
+    series=Object.keys(cols).map(p=>({name:p,color:cols[p],
+      values:buckets.map(b=>recs.filter(r=>serviceOf(r)===p&&bucketKey(r.date,salesPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0))}));
+  } else {
+    const cols={'新規':'#2f7a5f','既存/リピート':'#33526e'};
+    series=[
+      {name:'新規',color:cols['新規'],values:buckets.map(b=>recs.filter(r=>r.date===r.firstVisit&&bucketKey(r.date,salesPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0))},
+      {name:'既存/リピート',color:cols['既存/リピート'],values:buckets.map(b=>recs.filter(r=>r.date!==r.firstVisit&&bucketKey(r.date,salesPeriod)===b.key).reduce((s,r)=>s+(Number(r.amount)||0),0))},
+    ];
+  }
+  stackedBar('sales-chart', buckets, series);
+  document.getElementById('sales-legend').innerHTML=legendHtml(series);
+  // 解説
+  const cur=buckets[buckets.length-1], prev=buckets[buckets.length-2];
+  const sum=(b,filt)=>recs.filter(r=>bucketKey(r.date,salesPeriod)===b.key&&(!filt||filt(r))).reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const notes=[];
+  if(cur&&prev){ const cv=sum(cur), pv=sum(prev);
+    if(pv>0){const diff=Math.round((cv-pv)/pv*100); notes.push(`直近の売上は前期間比${diff>=0?'+'+diff:''+diff}%です。`);}
+  }
+  if(salesMode==='service'&&cur){ const s=sum(cur,r=>serviceOf(r)==='整体'), p=sum(cur,r=>serviceOf(r)==='パーソナル');
+    notes.push(`直近は整体${yen(s)}・パーソナル${yen(p)}の構成です。`); }
+  document.getElementById('sales-note').textContent=notes.join('　')||'記録に金額を入力すると売上が集計されます。';
+}
+function renderVisitChart(){
+  const buckets=periodBuckets(salesPeriod);
+  const nw=buckets.map(()=>0), rp=buckets.map(()=>0);
+  customers.forEach(c=>{ const fv=firstVisitOf(c);
+    visitDatesOf(c).forEach(d=>{ const k=bucketKey(d,salesPeriod); const i=buckets.findIndex(b=>b.key===k); if(i<0)return; (d===fv?nw:rp)[i]++; });
+  });
+  const series=[{name:'新規',color:'#2f7a5f',values:nw},{name:'リピート',color:'#33526e',values:rp}];
+  stackedBar('visit-chart', buckets, series, v=>v.toLocaleString());
+  document.getElementById('visit-legend').innerHTML=legendHtml(series);
+  const totN=nw.reduce((a,b)=>a+b,0), totR=rp.reduce((a,b)=>a+b,0);
+  document.getElementById('visit-note').textContent=`期間内の来店 ${totN+totR}件（新規 ${totN} / リピート ${totR}）。`;
+}
+function renderRepeatChart(){
+  const buckets=periodBuckets(salesPeriod);
+  const vals=buckets.map(b=>{
+    // その期間に初回来店した顧客のうち、2回目以降に来店した割合
+    const news=customers.filter(c=>bucketKey(firstVisitOf(c),salesPeriod)===b.key && firstVisitOf(c));
+    if(news.length===0) return 0;
+    const ret=news.filter(c=>visitDatesOf(c).length>=2).length;
+    return Math.round(ret/news.length*100);
+  });
+  multiLine('repeat-chart', buckets, [{name:'リピート率',color:'#14654c',values:vals}], v=>v+'%');
+  const last=vals[vals.length-1];
+  document.getElementById('repeat-note').textContent=`直近の新規顧客の再来店率は約${last}%です。新規顧客が2回目に来店した割合を表しています。`;
+}
+function renderCustomerTrend(){
+  // 月別固定（推移は月単位が自然）
+  const buckets=periodBuckets('month');
+  const totalV=[], newV=[], dormV=[], cancelV=[];
+  buckets.forEach(b=>{
+    const monthEnd=new Date(b.key+'-01'); monthEnd.setMonth(monthEnd.getMonth()+1); monthEnd.setDate(0);
+    const meISO=iso(monthEnd);
+    let total=0,nw=0,dorm=0,cancel=0;
+    customers.forEach(c=>{
+      const reg=(firstVisitOf(c)||c.createdAt||'');
+      if(reg && reg<=meISO){ total++;
+        const vis=visitDatesOf(c).filter(d=>d<=meISO);
+        const lv=vis.length?vis[vis.length-1]:reg;
+        if(daysBetween(lv, meISO)>=30) dorm++;
+      }
+      if((firstVisitOf(c)||c.createdAt||'').slice(0,7)===b.key) nw++;
+      if((c.cancelDate||'') && c.cancelDate<=meISO) cancel++;
+    });
+    totalV.push(total); newV.push(nw); dormV.push(dorm); cancelV.push(cancel);
+  });
+  const series=[
+    {name:'総顧客数',color:'#33526e',values:totalV},
+    {name:'新規',color:'#2f7a5f',values:newV},
+    {name:'休眠(30日+)',color:'#b08d4f',values:dormV},
+    {name:'退会(累計)',color:'#b4342a',values:cancelV},
+  ];
+  multiLine('customer-trend-chart', buckets, series, v=>v.toLocaleString());
+  document.getElementById('ct-legend').innerHTML=legendHtml(series);
+  document.getElementById('ct-note').textContent=`現在の総顧客数は${customers.length}名です。休眠は各月末時点で30日以上来店がない顧客数です。`;
+}
+function renderTicketSummary(){
+  const tks=customers.filter(c=>c.plan==='回数券');
+  const purchased=tks.reduce((s,c)=>s+(Number(c.ticketPurchased)||0),0);
+  const remain=tks.reduce((s,c)=>s+(Number(c.tickets)||0),0);
+  const used=Math.max(0, purchased-remain);
+  const expired=tks.filter(c=>{const a=ticketAlert(c);return a&&a.expState==='expired';}).length;
+  const soon=tks.filter(c=>{const a=ticketAlert(c);return a&&a.expState==='soon';}).length;
+  const low=tks.filter(c=>{const a=ticketAlert(c);return a&&a.low;}).length;
+  const rows=[
+    ['販売数（購入回数合計）', purchased, '#33526e', purchased],
+    ['消化数', used, '#2f7a5f', purchased],
+    ['残数', remain, '#b08d4f', purchased||1],
+  ];
+  const max=Math.max(1, purchased);
+  document.getElementById('ticket-summary').innerHTML=`
+    ${rows.map(r=>`<div class="bar-row"><span class="lbl">${r[0].split('（')[0]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${(r[1]/max*100).toFixed(1)}%; background:${r[2]}"></div></div>
+      <span class="amount">${r[1].toLocaleString()}回</span></div>`).join('')}
+    <div class="stat-row" style="margin-top:14px">
+      <div class="stat"><div class="s-label">残わずか(2回以下)</div><div class="s-val" style="color:var(--warning)">${low}名</div></div>
+      <div class="stat"><div class="s-label">期限切れ間近</div><div class="s-val" style="color:var(--warning)">${soon}名</div></div>
+      <div class="stat"><div class="s-label">期限切れ</div><div class="s-val" style="color:var(--danger)">${expired}名</div></div>
+    </div>`;
+  document.getElementById('ticket-note').textContent=`回数券利用者は${tks.length}名。残り2回以下が${low}名で更新提案の候補です。`;
+}
+
+/* ==================== 新規登録・編集 ==================== */
+function openNewForm(){
+  editingId=null;
+  document.getElementById('form-title').textContent='新規顧客登録';
+  ['f-name','f-kana','f-tel','f-complaint','f-note','f-monthly-fee','f-nextvisit',
+   'f-tickets-purchased','f-ticket-expiry','f-monthly-start','f-next-payment','f-monthly-quota'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-plan').value='回数券';
+  document.getElementById('f-tickets').value=8;
+  document.getElementById('f-status').value='';
+  togglePlanFields();
+  showView('form');
+  document.querySelector('[data-nav="new"]').classList.add('active');
+}
+function editCurrentCustomer(){
+  const c=findCurrent(); if(!c) return;
+  editingId=c.id;
+  document.getElementById('form-title').textContent='顧客情報の編集';
+  const set=(id,v)=>document.getElementById(id).value=v??'';
+  set('f-name',c.name); set('f-kana',c.kana); set('f-tel',c.tel); set('f-status',c.status);
+  set('f-plan',c.plan); set('f-nextvisit',c.nextVisit);
+  set('f-tickets',c.tickets??0); set('f-tickets-purchased',c.ticketPurchased); set('f-ticket-expiry',c.ticketExpiry);
+  set('f-monthly-fee',c.monthlyFee||''); set('f-monthly-start',c.monthlyStart); set('f-next-payment',c.nextPayment); set('f-monthly-quota',c.monthlyQuota);
+  set('f-complaint',c.complaint); set('f-note',c.note);
+  togglePlanFields();
+  showView('form');
+}
+function togglePlanFields(){
+  const plan=document.getElementById('f-plan').value;
+  const show=(id,on)=>document.getElementById(id).style.display=on?'':'none';
+  show('field-tickets', plan==='回数券'); show('field-tickets-p', plan==='回数券'); show('field-tickets-e', plan==='回数券');
+  show('field-monthly', plan==='月額制'); show('field-monthly-start', plan==='月額制'); show('field-monthly-next', plan==='月額制'); show('field-monthly-quota', plan==='月額制');
+}
+function saveCustomer(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){ alert('氏名を入力してください'); return; }
+  const g=id=>document.getElementById(id).value;
+  const data={
+    name, kana:g('f-kana').trim(), tel:g('f-tel').trim(), status:g('f-status'),
+    plan:g('f-plan'), nextVisit:g('f-nextvisit'),
+    tickets:Number(g('f-tickets'))||0, ticketPurchased:g('f-tickets-purchased'), ticketExpiry:g('f-ticket-expiry'),
+    monthlyFee:Number(g('f-monthly-fee'))||0, monthlyStart:g('f-monthly-start'), nextPayment:g('f-next-payment'), monthlyQuota:g('f-monthly-quota'),
+    complaint:g('f-complaint').trim(), note:g('f-note').trim(),
+  };
+  if(editingId){ Object.assign(customers.find(c=>c.id===editingId), data); persist(); openDetail(editingId); }
+  else { const c={ id:'c'+Date.now(), createdAt:todayISO(), records:[], tasks:[], karte:[], follow:{status:'',date:''}, ...data }; customers.push(c); persist(); openDetail(c.id); }
+}
+
+/* ==================== 顧客詳細 ==================== */
+function openDetail(id){
+  currentId=id; const c=findCurrent(); if(!c) return;
+  document.getElementById('d-avatar').textContent=(c.name||'').charAt(0);
+  document.getElementById('d-name').textContent=c.name;
+  document.getElementById('d-kana').textContent=[c.kana,c.tel].filter(Boolean).join('　');
+
+  const rank=rankOf(c);
+  const rb=document.getElementById('d-rank-badge'); rb.textContent=rank+'ランク'; rb.className='badge rank-'+rank;
+  const pb=document.getElementById('d-plan-badge'); pb.textContent=c.plan||''; pb.className='badge '+(c.plan==='回数券'?'kaisu':c.plan==='月額制'?'getsu':'tanpatsu');
+  const sb=document.getElementById('d-status-badge'); if(c.status){ sb.style.display=''; sb.textContent=c.status; sb.className='badge muted'; } else sb.style.display='none';
+
+  // サマリー
+  document.getElementById('d-total-sales').textContent=yen(totalSalesOf(c));
+  document.getElementById('d-visit-count').textContent=visitDatesOf(c).length;
+  document.getElementById('d-last-visit').textContent=fmtDate(lastVisitOf(c));
+  document.getElementById('d-next-visit').textContent=fmtDate(c.nextVisit);
+  const ds=daysSinceVisit(c); const dsEl=document.getElementById('d-since');
+  dsEl.textContent=ds===null?'–':ds+'日';
+  dsEl.style.color=ds===null?'':ds>=30?'var(--danger)':ds>=14?'var(--warning)':'';
+
+  // ステータス・フォロー
+  document.getElementById('d-status').value=c.status||'';
+  document.getElementById('d-nextvisit').value=c.nextVisit||'';
+  document.getElementById('d-follow-status').value=(c.follow&&c.follow.status)||'';
+  document.getElementById('d-follow-date').value=(c.follow&&c.follow.date)||'';
+
+  // プラン別ボックス
+  document.getElementById('d-ticket-box').style.display=c.plan==='回数券'?'':'none';
+  document.getElementById('d-monthly-box').style.display=c.plan==='月額制'?'':'none';
+  document.getElementById('d-tanpatsu-box').style.display=c.plan==='単発'?'':'none';
+  document.getElementById('d-plan-title').textContent=c.plan==='回数券'?'回数券の管理':c.plan==='月額制'?'月額会員の管理':'単発（都度払い）';
+
+  // 回数券
+  const purchased=Number(c.ticketPurchased)||0, remain=Number(c.tickets)||0;
+  document.getElementById('d-tk-purchased').textContent=c.ticketPurchased!==''?purchased+'回':'–';
+  document.getElementById('d-tk-used').textContent=c.ticketPurchased!==''?Math.max(0,purchased-remain)+'回':'–';
+  document.getElementById('d-ticket-count').textContent=remain;
+  document.getElementById('d-tk-expiry').textContent=fmtDate(c.ticketExpiry);
+  document.getElementById('d-ticket-expiry-in').value=c.ticketExpiry||'';
+  const ta=ticketAlert(c); const taEl=document.getElementById('d-tk-alert');
+  if(ta){ let t='正常', col='var(--success)';
+    if(ta.expState==='expired'){t='期限切れ';col='var(--danger)';}
+    else if(ta.expState==='soon'){t='期限間近';col='var(--warning)';}
+    else if(ta.low){t='残わずか';col='var(--warning)';}
+    taEl.textContent=t; taEl.style.color=col; taEl.style.fontSize='15px';
+  }
+
+  // 月額
+  document.getElementById('d-monthly-fee').textContent=Number(c.monthlyFee||0).toLocaleString();
+  document.getElementById('d-m-start').textContent=fmtDate(c.monthlyStart);
+  document.getElementById('d-m-next').textContent=fmtDate(c.nextPayment);
+  document.getElementById('d-m-quota').textContent=c.monthlyQuota!==''?c.monthlyQuota+'回':'–';
+  const thisMonth=todayISO().slice(0,7);
+  const usedThis=(c.records||[]).filter(r=>(r.date||'').slice(0,7)===thisMonth).length;
+  document.getElementById('d-m-used').textContent=usedThis+'回';
+  const quota=Number(c.monthlyQuota);
+  document.getElementById('d-m-remain').textContent=c.monthlyQuota!==''?Math.max(0,quota-usedThis)+'回':'–';
+  document.getElementById('d-pay-status').value=c.paymentStatus||'';
+  document.getElementById('d-cancel-date').value=c.cancelDate||'';
+
+  // 記録・カルテ
+  document.getElementById('d-rec-date').value=todayISO();
+  document.getElementById('d-rec-body').value='';
+  document.getElementById('d-rec-amount').value='';
+  document.getElementById('d-rec-category').value='';
+  document.getElementById('k-date').value=todayISO();
+  editingRecId=null;
+
+  renderTasks(); renderRecords(); renderKartes();
+  showView('detail');
+}
+function updateField(key, val){ const c=findCurrent(); if(!c) return; c[key]=val; persist(); openDetail(c.id); }
+function updateFollow(key, val){ const c=findCurrent(); if(!c) return; if(!c.follow) c.follow={status:'',date:''}; c.follow[key]=val; persist(); }
+function deleteCurrentCustomer(){
+  const c=findCurrent(); if(!c) return;
+  if(!confirm(`「${c.name}」様のデータを削除します。よろしいですか？\n（記録・カルテ・課題もすべて削除されます）`)) return;
+  customers=customers.filter(x=>x.id!==currentId); persist(); showView('customers');
+}
+function setSalesGoal(){ settings.salesGoal=Number(document.getElementById('sales-goal').value)||0; persistSettings(); renderDashboard(); }
+
+/* --- 回数券操作 --- */
+function useTicket(){ const c=findCurrent(); if(!c) return;
+  if((Number(c.tickets)||0)<=0){ alert('残回数がありません。回数券を追加購入してください。'); return; }
+  c.tickets=(Number(c.tickets)||0)-1; persist(); openDetail(c.id);
+}
+function addTickets(){ const c=findCurrent(); const n=Number(document.getElementById('d-ticket-add').value)||0; if(!c||n<=0) return;
+  c.tickets=(Number(c.tickets)||0)+n; c.ticketPurchased=(Number(c.ticketPurchased)||0)+n; persist(); openDetail(c.id);
+}
+
+/* --- 記録 --- */
+function addRecord(){ const c=findCurrent(); if(!c) return;
+  const date=document.getElementById('d-rec-date').value;
+  const body=document.getElementById('d-rec-body').value.trim();
+  if(!date||!body){ alert('日付と内容を入力してください'); return; }
+  c.records=c.records||[];
+  c.records.push({ id:'r'+Date.now(), date, type:document.getElementById('d-rec-type').value,
+    category:document.getElementById('d-rec-category').value, amount:Number(document.getElementById('d-rec-amount').value)||0, body });
+  persist();
+  document.getElementById('d-rec-body').value=''; document.getElementById('d-rec-amount').value='';
+  openDetail(c.id);
+}
+function deleteRecord(rid){ const c=findCurrent(); if(!c||!confirm('この記録を削除しますか？')) return;
+  c.records=c.records.filter(r=>r.id!==rid); persist(); openDetail(c.id);
+}
+function renderRecords(){
+  const c=findCurrent(); const el=document.getElementById('d-records');
+  const recs=[...(c.records||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(recs.length===0){ el.innerHTML='<div class="empty">まだ記録がありません</div>'; return; }
+  el.innerHTML=recs.map(r=>{
+    if(r.id===editingRecId){
+      const opt=v=>`<option value="${v}" ${r.type===v?'selected':''}>${v}</option>`;
+      const copt=v=>`<option value="${v}" ${(r.category||'')===v?'selected':''}>${v||'自動判定'}</option>`;
+      return `<div class="record-item"><div class="form-grid" style="margin-bottom:12px">
+        <div class="field"><label>日付</label><input type="date" id="edit-date" value="${r.date}"></div>
+        <div class="field"><label>種別</label><select id="edit-type">${opt('トレーニング')}${opt('施術')}${opt('トレーニング＋施術')}</select></div>
+        <div class="field"><label>サービス分類</label><select id="edit-category">${copt('')}${copt('整体')}${copt('パーソナル')}${copt('その他')}</select></div>
+        <div class="field"><label>金額（円）</label><input type="number" id="edit-amount" min="0" step="100" value="${r.amount||0}"></div>
+        <div class="field full"><label>内容</label><textarea id="edit-body">${esc(r.body)}</textarea></div>
+      </div><div style="text-align:right; display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn small" onclick="cancelEditRecord()">キャンセル</button>
+        <button class="btn small primary" onclick="saveEditRecord('${r.id}')">更新</button></div></div>`;
+    }
+    return `<div class="record-item"><div class="rec-head">
+      <span class="rec-date">${fmtDate(r.date)}${r.amount?`<span style="color:var(--primary); margin-left:8px">${yen(r.amount)}</span>`:''}</span>
+      <span><span class="badge ${r.type==='施術'?'getsu':'kaisu'}">${esc(serviceOf(r))}</span>
+        <button class="rec-del" onclick="startEditRecord('${r.id}')" style="color:var(--primary)">編集</button>
+        <button class="rec-del" onclick="deleteRecord('${r.id}')">削除</button></span></div>
+      <div class="rec-body">${esc(r.body)}</div></div>`;
+  }).join('');
+}
+function startEditRecord(rid){ editingRecId=rid; renderRecords(); }
+function cancelEditRecord(){ editingRecId=null; renderRecords(); }
+function saveEditRecord(rid){ const c=findCurrent(); const r=(c.records||[]).find(x=>x.id===rid); if(!r) return;
+  const date=document.getElementById('edit-date').value; const body=document.getElementById('edit-body').value.trim();
+  if(!date||!body){ alert('日付と内容を入力してください'); return; }
+  r.date=date; r.type=document.getElementById('edit-type').value; r.category=document.getElementById('edit-category').value;
+  r.amount=Number(document.getElementById('edit-amount').value)||0; r.body=body;
+  persist(); editingRecId=null; openDetail(c.id);
+}
+
+/* --- カルテ --- */
+const KARTE_FIELDS=[['shuso','主訴'],['mokuteki','目的'],['kiou','既往歴'],['itami','痛みの部位'],['shisei','姿勢評価'],['kadou','可動域'],['kinryoku','筋力評価'],['seijutsu','施術内容'],['training','トレーニング内容'],['chui','注意事項'],['kinki','禁忌事項'],['houshin','次回の方針'],['memo','スタッフメモ']];
+function addKarte(){ const c=findCurrent(); if(!c) return;
+  const date=document.getElementById('k-date').value;
+  if(!date){ alert('記録日を入力してください'); return; }
+  const entry={ id:'k'+Date.now(), date };
+  let any=false;
+  KARTE_FIELDS.forEach(([k])=>{ const v=document.getElementById('k-'+k).value.trim(); entry[k]=v; if(v)any=true; });
+  if(!any){ alert('カルテ項目を1つ以上入力してください'); return; }
+  c.karte=c.karte||[]; c.karte.push(entry); persist();
+  KARTE_FIELDS.forEach(([k])=>document.getElementById('k-'+k).value=''); document.getElementById('k-date').value=todayISO();
+  renderKartes();
+}
+function deleteKarte(kid){ const c=findCurrent(); if(!c||!confirm('このカルテを削除しますか？')) return;
+  c.karte=(c.karte||[]).filter(k=>k.id!==kid); persist(); renderKartes();
+}
+function renderKartes(){
+  const c=findCurrent(); const el=document.getElementById('d-kartes');
+  const ks=[...(c.karte||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(ks.length===0){ el.innerHTML='<div class="empty">カルテはまだありません</div>'; return; }
+  el.innerHTML=ks.map(k=>`<div class="karte-item">
+    <div class="k-date">${fmtDate(k.date)}<button class="rec-del" onclick="deleteKarte('${k.id}')">削除</button></div>
+    <div class="karte-grid">${KARTE_FIELDS.filter(([f])=>k[f]).map(([f,label])=>`<div class="kg"><b>${label}</b>${esc(k[f])}</div>`).join('')}</div>
+  </div>`).join('');
+}
+
+/* --- 今後の課題 --- */
+function addTask(){ const c=findCurrent(); const input=document.getElementById('d-task-input'); const text=input.value.trim();
+  if(!c||!text) return; c.tasks=c.tasks||[]; c.tasks.push({id:'t'+Date.now(), text, done:false}); persist(); input.value=''; renderTasks();
+}
+function toggleTask(tid){ const c=findCurrent(); const t=(c.tasks||[]).find(t=>t.id===tid); if(!t) return; t.done=!t.done; persist(); renderTasks(); }
+function deleteTask(tid){ const c=findCurrent(); c.tasks=(c.tasks||[]).filter(t=>t.id!==tid); persist(); renderTasks(); }
+function renderTasks(){
+  const c=findCurrent(); const el=document.getElementById('d-tasks'); const tasks=c.tasks||[];
+  el.innerHTML=tasks.length===0 ? '<div class="empty" style="padding:20px">課題はまだ登録されていません</div>'
+    : tasks.map(t=>`<div class="task-item ${t.done?'done':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')">
+        <span class="task-text">${esc(t.text)}</span>
+        <button class="rec-del" onclick="deleteTask('${t.id}')">削除</button></div>`).join('');
+}
+
+/* ==================== 初期化 ==================== */
+migrate();
+populateStatusSelects();
+const now=new Date();
+document.getElementById('today').textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${'日月火水木金土'[now.getDay()]}）`;
+renderDashboard();
+</script>
+</body>
+</html>

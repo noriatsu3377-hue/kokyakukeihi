@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TOTAL BODY FITNESS THEORY - 業務管理システム</title>
+<style>
+  :root {
+    --bg: #0c0f12;          /* Deep Black */
+    --card: #14181d;        /* Dark gray */
+    --card-hover: #1b2128;
+    --sidebar: #080a0c;
+    --primary: #c9a063;       /* Premium Gold */
+    --primary-dim: rgba(201, 160, 99, 0.15);
+    --primary-hover: #d8b47e;
+    --secondary: #1f2a25;     /* Dark green hint */
+    --accent: #2e5945;        /* Green accent */
+    --text: #e6e8eb;
+    --text-sub: #8b949e;
+    --border: #2d333b;
+    --success: #3fb950;
+    --warning: #d29922;
+    --danger: #f85149;
+    --danger-bg: rgba(248, 81, 73, 0.1);
+    --input-bg: #0c0f12;
+    --bottom-nav-height: 64px;
+    --sidebar-width: 240px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ===== Typography & Helpers ===== */
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.05em; }
+  h2 { font-size: 16px; font-weight: 600; }
+  .text-sub { color: var(--text-sub); font-size: 13px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+
+  /* ===== Buttons ===== */
+  .btn {
+    padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: 14px; cursor: pointer;
+    transition: all 0.2s; font-family: inherit; font-weight: 500;
+  }
+  .btn:hover { background: var(--card-hover); }
+  .btn.primary { background: var(--primary); color: #000; border-color: var(--primary); font-weight: bold; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.danger { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+  .btn.danger:hover { background: var(--danger); color: #fff; }
+  .btn.small { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+
+  /* ===== Forms ===== */
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .field label { font-size: 13px; color: var(--text-sub); font-weight: 500; }
+  .field input, .field select, .field textarea {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--input-bg); color: var(--text); font-size: 15px; font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim);
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .grid-cols-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+  /* ===== Layout & Cards ===== */
+  .sidebar {
+    width: var(--sidebar-width); background: var(--sidebar); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+  }
+  .sidebar .logo { padding: 24px 20px; font-size: 18px; font-weight: bold; color: var(--primary); border-bottom: 1px solid var(--border); letter-spacing: 0.1em; }
+  .sidebar nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+  .sidebar nav a {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px;
+    color: var(--text-sub); text-decoration: none; font-size: 14px; font-weight: 500;
+    margin-bottom: 4px; cursor: pointer; transition: all 0.2s;
+  }
+  .sidebar nav a:hover { color: var(--text); background: var(--card); }
+  .sidebar nav a.active { color: var(--primary); background: var(--primary-dim); }
+  
+  .main-content {
+    flex: 1; padding: 24px; margin-left: var(--sidebar-width); min-height: 100vh; width: calc(100% - var(--sidebar-width));
+  }
+
+  .panel {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .panel-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .panel-body { padding: 20px; }
+
+  /* ===== Mobile Bottom Nav ===== */
+  .bottom-nav {
+    display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height);
+    background: var(--sidebar); border-top: 1px solid var(--border);
+    z-index: 100; align-items: center; justify-content: space-around;
+  }
+  .bottom-nav a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text-sub); text-decoration: none; font-size: 10px; width: 20%; height: 100%; cursor: pointer;
+  }
+  .bottom-nav a i { font-size: 18px; margin-bottom: 4px; font-style: normal; }
+  .bottom-nav a.active { color: var(--primary); }
+
+  /* ===== Views ===== */
+  .view { display: none; animation: fadeIn 0.3s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== POS Grid ===== */
+  .pos-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .menu-card {
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 12px; text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .menu-card:hover { border-color: var(--primary); }
+  .menu-card .name { font-size: 13px; font-weight: bold; margin-bottom: 8px; line-height: 1.4; height: 36px; overflow: hidden; }
+  .menu-card .price { color: var(--primary); font-size: 14px; font-weight: bold; }
+  
+  .cart-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; height: calc(100vh - 100px); position: sticky; top: 20px; }
+  .cart-items { flex: 1; overflow-y: auto; padding: 16px; border-bottom: 1px solid var(--border); }
+  .cart-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px dashed var(--border); }
+  .cart-item-info { flex: 1; }
+  .cart-item-name { font-size: 14px; font-weight: 500; }
+  .cart-item-price { font-size: 13px; color: var(--text-sub); }
+  .cart-total { padding: 20px; }
+  .cart-total .row { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 8px; }
+  .cart-total .row.big { font-size: 22px; font-weight: bold; color: var(--primary); margin-bottom: 16px; }
+
+  /* ===== Badges & Utilities ===== */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+  .badge.gold { background: var(--primary-dim); color: var(--primary); }
+  .badge.green { background: rgba(63, 185, 80, 0.15); color: var(--success); }
+  .badge.red { background: var(--danger-bg); color: var(--danger); }
+  .badge.gray { background: #2d333b; color: #8b949e; }
+  
+  /* ===== Responsive ===== */
+  @media (max-width: 900px) {
+    body { padding-bottom: calc(var(--bottom-nav-height) + 20px); }
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; padding: 16px; width: 100%; }
+    .bottom-nav { display: flex; }
+    .pos-grid { grid-template-columns: 1fr; }
+    .cart-panel { height: auto; position: static; margin-top: 20px; }
+  }
+  
+  /* ===== Table ===== */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 12px 16px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border); }
+  th { font-size: 12px; color: var(--text-sub); font-weight: normal; background: #0c0f12; white-space: nowrap; }
+  tbody tr { cursor: pointer; transition: background 0.2s; }
+  tbody tr:hover { background: var(--card-hover); }
+  
+  /* ===== Modal ===== */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 16px; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--card); border-radius: 12px; border: 1px solid var(--border); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+  .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-body { padding: 20px; }
+
+</style>
+</head>
+<body>
+
+  <!-- パスワードロック画面 -->
+  <div id="login-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; padding:20px;">
+    <div style="font-size:24px; font-weight:bold; color:var(--primary); margin-bottom:24px; letter-spacing:0.1em;">零 -ZERO-</div>
+    <div class="field" style="width:100%; max-width:320px;">
+      <input type="password" id="login-pw" placeholder="パスワードを入力" style="text-align:center; padding:14px; font-size:16px;">
+      <button class="btn primary" style="margin-top:16px; width:100%; padding:14px; font-size:16px;" onclick="checkLogin()">ログイン</button>
+    </div>
+    <div id="login-error" style="color:var(--danger); margin-top:16px; display:none; font-weight:bold;">パスワードが違います</div>
+  </div>
+
+  <!-- Sidebar (PC) -->
+  <aside class="sidebar">
+    <div class="logo">零 -ZERO-</div>
+    <nav>
+      <a data-nav="dashboard" class="active" onclick="showView('dashboard')">🏠 ダッシュボード</a>
+      <a data-nav="pos" onclick="showView('pos')">🛒 売上・入金</a>
+      <a data-nav="expenses" onclick="showView('expenses')">💸 経費管理</a>
+      <a data-nav="history" onclick="showView('history')">📜 取引履歴</a>
+      <a data-nav="customers" onclick="showView('customers')">👥 顧客管理</a>
+      <a data-nav="analysis" onclick="showView('analysis')">📊 分析</a>
+      <a data-nav="funds" onclick="showView('funds')">💰 資金・税金</a>
+      <a data-nav="follow" onclick="showView('follow')">📞 フォロー管理</a>
+      <a data-nav="settings" onclick="showView('settings')">⚙️ 設定</a>
+    </nav>
+  </aside>
+
+  <!-- Bottom Nav (Mobile) -->
+  <nav class="bottom-nav">
+    <a data-nav="dashboard" class="active" onclick="showView('dashboard')"><i>🏠</i>ホーム</a>
+    <a data-nav="pos" onclick="showView('pos')"><i>🛒</i>売上</a>
+    <a data-nav="expenses" onclick="showView('expenses')"><i>💸</i>経費</a>
+    <a data-nav="history" onclick="showView('history')"><i>📜</i>履歴</a>
+    <a data-nav="customers" onclick="showView('customers')"><i>👥</i>顧客</a>
+  </nav>
+
+  <main class="main-content">
+    
+    <!-- 1. ダッシュボード -->
+    <section id="view-dashboard" class="view active">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <div>
+          <h1>ダッシュボード</h1>
+          <div class="text-sub" id="dash-date"></div>
+        </div>
+      </div>
+      <div id="dash-content">読み込み中...</div>
+    </section>
+
+    <!-- 2. 売上・入金 (POS) -->
+    <section id="view-pos" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>売上・入金登録</h1>
+      </div>
+      <div class="pos-grid">
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>メニュー選択</h2>
+              <div class="flex gap-2">
+                <select id="pos-category" class="field" style="margin:0; padding:6px; font-size:13px;" onchange="renderMenuGrid()">
+                  <option value="">すべて</option>
+                  <option value="整体">整体</option>
+                  <option value="パーソナル">パーソナル</option>
+                  <option value="セミナー等">セミナー等</option>
+                </select>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="pos-menu-grid" class="menu-grid"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="cart-panel">
+            <div class="panel-head" style="border:none; padding-bottom:0;">
+              <h2>お会計</h2>
+            </div>
+            <div class="panel-body" style="padding-bottom:0;">
+              <div class="field">
+                <label>顧客選択 (未選択時は匿名)</label>
+                <select id="pos-customer"></select>
+              </div>
+            </div>
+            <div class="cart-items" id="pos-cart-items">
+              <div class="text-sub" style="text-align:center; padding:20px 0;">カートは空です</div>
+            </div>
+            <div class="cart-total">
+              <div class="row"><span>小計</span><span id="pos-subtotal">¥0</span></div>
+              <div class="row"><span>値引き</span><span>- ¥<input type="number" id="pos-discount" value="0" style="width:60px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); text-align:right;" oninput="updateCartTotal()"></span></div>
+              <div class="row big"><span>合計</span><span id="pos-total">¥0</span></div>
+              <button class="btn primary" style="width:100%; padding:14px; font-size:16px;" onclick="openPaymentModal()">会計へ進む</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>入金と完了</h2>
+          <button class="btn small" onclick="closeModal('payment-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="row" style="display:flex; justify-content:space-between; font-size:24px; font-weight:bold; color:var(--primary); margin-bottom:20px;">
+            <span>合計請求額</span><span id="pay-total-disp">¥0</span>
+          </div>
+          
+          <div class="grid-cols-2">
+            <div class="field">
+              <label>売上日</label>
+              <input type="date" id="pay-date">
+            </div>
+            <div class="field">
+              <label>提供場所</label>
+              <input type="text" id="pay-location" value="メイン店舗">
+            </div>
+          </div>
+          
+          <div class="field">
+            <label>今回入金する金額 (未入金の場合は0)</label>
+            <div class="flex gap-2">
+              <input type="number" id="pay-amount" style="flex:1;">
+              <button class="btn" onclick="document.getElementById('pay-amount').value = currentCartTotal; calcUnpaid();">全額</button>
+            </div>
+            <div class="text-sub" style="margin-top:4px; color:var(--warning);" id="pay-unpaid-disp">未入金: ¥0</div>
+          </div>
+
+          <div class="field">
+            <label>支払方法</label>
+            <select id="pay-method">
+              <option value="現金">現金</option>
+              <option value="クレジットカード">クレジットカード</option>
+              <option value="銀行振込">銀行振込</option>
+              <option value="電子マネー">電子マネー</option>
+              <option value="回数券消化">回数券消化</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>備考</label>
+            <input type="text" id="pay-note" placeholder="メモ">
+          </div>
+
+          <button class="btn primary" style="width:100%; padding:14px; margin-top:20px; font-size:16px;" onclick="processTransaction()">売上を確定する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- プレースホルダー（他のView） -->
+    
+    <!-- 5. 経費管理 -->
+    <section id="view-expenses" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>経費管理</h1>
+        <button class="btn primary" onclick="openExpenseModal()">＋ 経費登録</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <input type="month" id="exp-month" class="field" style="margin:0; width:150px;" onchange="renderExpenses()">
+          <span style="font-weight:bold; color:var(--danger);" id="exp-total-disp">¥0</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>日付</th><th>費目</th><th>支払先・内容</th><th>金額</th><th>操作</th></tr></thead>
+            <tbody id="exp-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 経費モーダル -->
+    <div id="expense-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>経費登録</h2><button class="btn small" onclick="closeModal('expense-modal')">✕</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="exp-id">
+          <div class="field"><label>日付</label><input type="date" id="exp-date"></div>
+          <div class="field"><label>費目</label><select id="exp-category"></select></div>
+          <div class="field"><label>金額 (税込)</label><input type="number" id="exp-amount"></div>
+          <div class="field"><label>支払先・内容</label><input type="text" id="exp-payee"></div>
+          <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveExpense()">保存する</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 4. 取引履歴 -->
+    <section id="view-history" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>取引履歴</h1>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <input type="month" id="hist-month" class="field" style="margin:0; width:150px;" onchange="renderHistory()">
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>取引日</th><th>顧客</th><th>メニュー</th><th>売上金額</th><th>入金済</th><th>未入金</th><th>操作</th></tr>
+            </thead>
+            <tbody id="hist-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 入金追加モーダル -->
+    <div id="payment-add-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>入金を追加</h2>
+          <button class="btn small" onclick="closeModal('payment-add-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="pay-add-txid">
+          <div class="row" style="font-size:16px; margin-bottom:10px;">未入金残高: <span id="pay-add-unpaid" style="color:var(--danger); font-weight:bold;">¥0</span></div>
+          <div class="field"><label>入金日</label><input type="date" id="pay-add-date"></div>
+          <div class="field"><label>入金額</label><input type="number" id="pay-add-amount"></div>
+          <div class="field"><label>支払方法</label><select id="pay-add-method"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option><option value="銀行振込">銀行振込</option></select></div>
+          <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveAdditionalPayment()">入金を登録</button>
+        </div>
+      </div>
+    </div>
+    <!-- 3. 顧客管理 -->
+    <section id="view-customers" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>顧客管理</h1>
+        <button class="btn primary" onclick="openCustomerModal()">＋ 新規登録</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <input type="text" id="cust-search" class="field" style="margin:0; width:300px; max-width:100%;" placeholder="名前や電話番号で検索" oninput="renderCustomerList()">
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>氏名</th><th>ふりがな</th><th>電話番号</th><th>ステータス</th><th>プラン</th><th>登録日</th></tr>
+            </thead>
+            <tbody id="cust-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 顧客登録/編集モーダル -->
+    <div id="customer-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2 id="cust-modal-title">顧客登録</h2>
+          <button class="btn small" onclick="closeModal('customer-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="cust-edit-id">
+          <div class="grid-cols-2">
+            <div class="field"><label>氏名 *</label><input type="text" id="cust-name"></div>
+            <div class="field"><label>ふりがな</label><input type="text" id="cust-kana"></div>
+          </div>
+          <div class="grid-cols-2">
+            <div class="field"><label>電話番号</label><input type="tel" id="cust-tel"></div>
+            <div class="field"><label>ステータス</label>
+              <select id="cust-status">
+                <option value="">未設定</option><option value="継続中">継続中</option><option value="体験のみ">体験のみ</option><option value="休眠">休眠</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-cols-2">
+            <div class="field"><label>プラン</label>
+              <select id="cust-plan">
+                <option value="">未設定</option><option value="都度払い">都度払い</option><option value="回数券">回数券</option><option value="月額制">月額制</option>
+              </select>
+            </div>
+            <div class="field"><label>次回来店予定</label><input type="date" id="cust-nextvisit"></div>
+          </div>
+          <div class="field"><label>主訴・お悩み</label><textarea id="cust-complaint"></textarea></div>
+          <div class="field"><label>備考</label><textarea id="cust-note"></textarea></div>
+          
+          <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveCustomer()">保存する</button>
+        </div>
+      </div>
+    </div>
+    <!-- 6. 分析 -->
+    <section id="view-analysis" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>分析</h1>
+      </div>
+      <div class="grid-cols-2">
+        <div class="panel">
+          <div class="panel-head"><h2>サマリー (全期間)</h2></div>
+          <div class="panel-body">
+            <div class="row" style="margin-bottom:12px;">総売上: <span style="font-weight:bold; color:var(--primary); font-size:20px;" id="ana-total-sales">¥0</span></div>
+            <div class="row" style="margin-bottom:12px;">総入金: <span style="font-weight:bold; color:var(--success); font-size:20px;" id="ana-total-pays">¥0</span></div>
+            <div class="row">客単価 (平均): <span style="font-weight:bold; font-size:20px;" id="ana-avg-sales">¥0</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>サービス別売上</h2></div>
+          <div class="panel-body" id="ana-service-sales"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 資金・税金 -->
+    <section id="view-funds" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>資金・税金</h1>
+        <button class="btn small" onclick="openModal('fund-setting-modal')">設定</button>
+      </div>
+      <div class="grid-cols-2">
+        <div class="panel">
+          <div class="panel-head"><h2>利用可能資金 (目安)</h2></div>
+          <div class="panel-body">
+            <div style="font-size:36px; font-weight:bold; color:var(--success); margin-bottom:8px;" id="fund-available">¥0</div>
+            <div class="text-sub">（開始残高 ＋ 総入金 － 総経費 － 納税準備金目安）</div>
+            <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+            <div class="flex justify-between" style="margin-bottom:8px;"><span>基準開始残高:</span><span id="fund-initial">¥0</span></div>
+            <div class="flex justify-between" style="margin-bottom:8px;"><span>入金合計:</span><span id="fund-pays">¥0</span></div>
+            <div class="flex justify-between" style="margin-bottom:8px;"><span>経費合計:</span><span id="fund-exp">¥0</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>納税準備金 (目安)</h2></div>
+          <div class="panel-body">
+            <div style="font-size:36px; font-weight:bold; color:var(--warning); margin-bottom:8px;" id="fund-tax">¥0</div>
+            <div class="text-sub">（利益 × 積立設定率）</div>
+            <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+            <div class="flex justify-between" style="margin-bottom:8px;"><span>概算利益:</span><span id="fund-profit">¥0</span></div>
+            <div class="flex justify-between" style="margin-bottom:8px;"><span>積立設定率:</span><span id="fund-tax-rate">20%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 資金設定モーダル -->
+    <div id="fund-setting-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>資金計算の設定</h2><button class="btn small" onclick="closeModal('fund-setting-modal')">✕</button></div>
+        <div class="modal-body">
+          <div class="field"><label>基準となる開始残高 (円)</label><input type="number" id="set-fund-initial"></div>
+          <div class="field"><label>納税準備金の積立率 (%)</label><input type="number" id="set-tax-rate"></div>
+          <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveFundSettings()">保存する</button>
+        </div>
+      </div>
+    </div>
+    <!-- 8. フォロー管理 -->
+    <section id="view-follow" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>フォロー管理</h1>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>フォロー対象リスト</h2></div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>顧客</th><th>最終来店日(目安)</th><th>次回来店予定</th><th>対応状況</th><th>対応予定日</th><th>操作</th></tr></thead>
+            <tbody id="follow-list-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- フォローモーダル -->
+    <div id="follow-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head"><h2 id="follow-modal-name">フォロー状況の更新</h2><button class="btn small" onclick="closeModal('follow-modal')">✕</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="fol-cust-id">
+          <div class="field"><label>対応状況</label><select id="fol-status"><option value="未対応">未対応</option><option value="LINE送信済み">LINE送信済み</option><option value="電話済み">電話済み</option><option value="次回提案済み">次回提案済み</option><option value="返信待ち">返信待ち</option><option value="再来店済み">再来店済み</option></select></div>
+          <div class="field"><label>対応予定日</label><input type="date" id="fol-date"></div>
+          <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveFollow()">更新する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. 設定・バックアップ -->
+    <section id="view-settings" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+        <h1>設定・バックアップ</h1>
+      </div>
+      <div class="grid-cols-2">
+        <div class="panel">
+          <div class="panel-head"><h2>データ出力 (バックアップ)</h2></div>
+          <div class="panel-body">
+            <p class="text-sub" style="margin-bottom:16px;">顧客、売上、経費、設定などすべてのデータをJSONファイルとしてダウンロードします。</p>
+            <button class="btn primary" onclick="exportData()">データを書き出す</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>データ取込 (復元)</h2></div>
+          <div class="panel-body">
+            <p class="text-sub" style="margin-bottom:16px;">バックアップしたJSONファイルを読み込みます。既存データは上書きされる場合があります。</p>
+            <button class="btn" onclick="importData()">データを読み込む</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script>
+/* ==================== パスワードロック ==================== */
+function checkLogin() {
+  if (document.getElementById('login-pw').value === 'Nori0120') {
+    document.getElementById('login-screen').style.display = 'none';
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+document.getElementById('login-pw').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') checkLogin();
+});
+
+/* ==================== データモデル (v2) とマイグレーション ==================== */
+const KEY_V1 = 'crm-customers-v1';
+const KEY_SET_V1 = 'crm-settings-v1';
+const KEY_V2 = 'crm-data-v2';
+
+let db = {
+  version: 2,
+  customers: [],
+  transactions: [],
+  payments: [],
+  expenses: [],
+  tickets: [],
+  kartes: [],
+  tasks: [],
+  settings: {
+    businessName: "TOTAL BODY FITNESS THEORY",
+    salesGoal: 0,
+    menus: [
+      { id: 'm1', name: 'TOTAL BODY CHECK／初回限定', time: '75〜90分', price: 10000, category: '整体' },
+      { id: 'm2', name: '完全おまかせ・零式コンディショニング', time: '60分', price: 16500, category: '整体' },
+      { id: 'm3', name: '全身トータルコンディショニング', time: '90分', price: 19800, category: '整体' },
+      { id: 'm4', name: 'パフォーマンスアップ', time: '60分', price: 13200, category: 'パーソナル' },
+      { id: 'm5', name: '全身調整コンディショニング', time: '60分', price: 13200, category: '整体' },
+      { id: 'm6', name: '姿勢改善コンディショニング', time: '60分', price: 12100, category: '整体' },
+      { id: 'm7', name: '美脚・ボディメイク', time: '60分', price: 12100, category: 'パーソナル' },
+      { id: 'm8', name: '疲労回復コンディショニング', time: '60分', price: 11000, category: '整体' },
+      { id: 'm9', name: '同業者向け個別セッション', time: '60分', price: 20000, category: 'セミナー等' },
+      { id: 'm10', name: 'ヘッドセラピー', time: '30分', price: 5500, category: '整体' },
+      { id: 'm11', name: 'フットセラピー', time: '30分', price: 5500, category: '整体' },
+      { id: 'm12', name: 'ハンドセラピー', time: '30分', price: 5500, category: '整体' }
+    ],
+    expenseCategories: ['会場費', '交通費', '宿泊費', '備品、消耗品', '広告費', '通信費', '決済手数料', 'その他'],
+    taxReserveRate: 20,
+    initialFund: 0,
+    initialFundDate: ""
+  }
+};
+
+function saveDb() {
+  localStorage.setItem(KEY_V2, JSON.stringify(db));
+}
+
+function loadAndMigrate() {
+  const v2Json = localStorage.getItem(KEY_V2);
+  if (v2Json) {
+    try { db = JSON.parse(v2Json); return; } catch(e) { console.error("v2 load failed", e); }
+  }
+
+  console.log("Migrating from v1 to v2...");
+  const v1CustJson = localStorage.getItem(KEY_V1);
+  const v1SetJson = localStorage.getItem(KEY_SET_V1);
+  
+  if (v1CustJson) {
+    try {
+      const v1c = JSON.parse(v1CustJson);
+      v1c.forEach(c => {
+        // Customer
+        db.customers.push({
+          id: c.id, name: c.name||'', kana: c.kana||'', tel: c.tel||'',
+          status: c.status||'', complaint: c.complaint||'', note: c.note||'',
+          plan: c.plan||'', monthlyFee: c.monthlyFee||0, monthlyStart: c.monthlyStart||'',
+          cancelDate: c.cancelDate||'', paymentStatus: c.paymentStatus||'',
+          nextVisit: c.nextVisit||'', createdAt: c.createdAt||'',
+          followStatus: (c.follow && c.follow.status)||'', followDate: (c.follow && c.follow.date)||''
+        });
+
+        // Tickets
+        if (c.plan === '回数券' && (Number(c.ticketPurchased) > 0 || Number(c.tickets) > 0)) {
+          db.tickets.push({
+            id: 'tk_' + c.id, customerId: c.id, purchasedDate: c.createdAt||'',
+            totalCount: Number(c.ticketPurchased)||0, usedCount: Math.max(0, (Number(c.ticketPurchased)||0) - (Number(c.tickets)||0)),
+            expireDate: c.ticketExpiry||''
+          });
+        }
+
+        // Transactions & Payments from records
+        (c.records || []).forEach(r => {
+          const tid = r.id || ('t_'+Date.now()+Math.random());
+          const amount = Number(r.amount)||0;
+          db.transactions.push({
+            id: tid, date: r.date||'', serviceDate: r.date||'', customerId: c.id,
+            totalAmount: amount, discount: 0,
+            items: [{ menuName: r.type + (r.category?` (${r.category})`:''), price: amount, quantity: 1 }],
+            location: '移行データ', note: r.body||''
+          });
+          // Assuming past v1 records are fully paid
+          if (amount > 0) {
+            db.payments.push({
+              id: 'p_'+tid, transactionId: tid, date: r.date||'', amount: amount, method: '不明'
+            });
+          }
+        });
+
+        // Kartes
+        (c.karte || []).forEach(k => {
+          db.kartes.push({
+            id: k.id||('k_'+Date.now()+Math.random()), customerId: c.id, date: k.date||'',
+            shuso: k.shuso, mokuteki: k.mokuteki, kiou: k.kiou, itami: k.itami,
+            shisei: k.shisei, kadou: k.kadou, kinryoku: k.kinryoku, seijutsu: k.seijutsu,
+            training: k.training, chui: k.chui, kinki: k.kinki, houshin: k.houshin, memo: k.memo
+          });
+        });
+
+        // Tasks
+        (c.tasks || []).forEach(t => {
+          db.tasks.push({
+            id: t.id||('tsk_'+Date.now()+Math.random()), customerId: c.id, text: t.text||'', done: !!t.done
+          });
+        });
+      });
+    } catch(e) { console.error("Migration error", e); alert("旧データの移行に失敗しました。元のデータは保護されています。"); return; }
+  }
+
+  if (v1SetJson) {
+    try {
+      const v1s = JSON.parse(v1SetJson);
+      if(v1s.salesGoal) db.settings.salesGoal = v1s.salesGoal;
+    } catch(e){}
+  }
+  
+  saveDb();
+  console.log("Migration complete.");
+}
+
+/* ==================== ユーティリティ ==================== */
+function yen(n){ return '¥' + (Number(n)||0).toLocaleString(); }
+function iso(d=new Date()){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+/* ==================== 画面制御 ==================== */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  
+  // Nav highlight
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.toggle('active', a.dataset.nav===name));
+  document.querySelectorAll('.bottom-nav a').forEach(a => a.classList.toggle('active', a.dataset.nav===name));
+  
+  window.scrollTo(0, 0);
+  
+  if(name === 'dashboard') renderDashboard();
+  if(name === 'pos') initPos();
+  if(name === 'customers') renderCustomerList();
+  if(name === 'history') {
+    document.getElementById('hist-month').value = iso().slice(0,7);
+    renderHistory();
+  }
+  if(name === 'expenses') {
+    document.getElementById('exp-month').value = iso().slice(0,7);
+    renderExpenses();
+  }
+  if(name === 'analysis') renderAnalysis();
+  if(name === 'funds') {
+    document.getElementById('set-fund-initial').value = db.settings.initialFund || 0;
+    document.getElementById('set-tax-rate').value = db.settings.taxReserveRate || 0;
+    renderFunds();
+  }
+  if(name === 'follow') renderFollow();
+}
+
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+/* ==================== POS (売上・入金) ロジック ==================== */
+let cart = [];
+let currentCartTotal = 0;
+
+function initPos() {
+  // Populate customers
+  const sel = document.getElementById('pos-customer');
+  sel.innerHTML = '<option value="">匿名 (顧客未選択)</option>' + 
+    db.customers.map(c => `<option value="${c.id}">${c.name} 様</option>`).join('');
+  
+  renderMenuGrid();
+  renderCart();
+  document.getElementById('pay-date').value = iso();
+}
+
+function renderMenuGrid() {
+  const cat = document.getElementById('pos-category').value;
+  const menus = db.settings.menus.filter(m => !cat || m.category === cat);
+  document.getElementById('pos-menu-grid').innerHTML = menus.map(m => `
+    <div class="menu-card" onclick="addToCart('${m.id}')">
+      <div class="name">${m.name}</div>
+      <div class="text-sub" style="font-size:11px; margin-bottom:4px;">${m.time}</div>
+      <div class="price">${yen(m.price)}</div>
+    </div>
+  `).join('');
+}
+
+function addToCart(menuId) {
+  const menu = db.settings.menus.find(m => m.id === menuId);
+  if(!menu) return;
+  const existing = cart.find(i => i.menuId === menuId);
+  if(existing) { existing.qty++; }
+  else { cart.push({ menuId: menu.id, name: menu.name, price: menu.price, qty: 1 }); }
+  renderCart();
+}
+
+function removeFromCart(idx) {
+  cart.splice(idx, 1);
+  renderCart();
+}
+
+function renderCart() {
+  const list = document.getElementById('pos-cart-items');
+  if(cart.length === 0) {
+    list.innerHTML = '<div class="text-sub" style="text-align:center; padding:20px 0;">カートは空です</div>';
+    currentCartTotal = 0;
+  } else {
+    let sub = 0;
+    list.innerHTML = cart.map((item, i) => {
+      sub += item.price * item.qty;
+      return `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-price">${yen(item.price)} × ${item.qty}</div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div style="font-weight:bold;">${yen(item.price * item.qty)}</div>
+          <button class="btn small danger" onclick="removeFromCart(${i})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('pos-subtotal').textContent = yen(sub);
+  }
+  updateCartTotal();
+}
+
+function updateCartTotal() {
+  let sub = cart.reduce((s, item) => s + (item.price * item.qty), 0);
+  let discount = Number(document.getElementById('pos-discount').value) || 0;
+  currentCartTotal = Math.max(0, sub - discount);
+  document.getElementById('pos-total').textContent = yen(currentCartTotal);
+}
+
+function openPaymentModal() {
+  if(cart.length === 0) { alert("カートに商品がありません"); return; }
+  document.getElementById('pay-total-disp').textContent = yen(currentCartTotal);
+  document.getElementById('pay-amount').value = currentCartTotal;
+  calcUnpaid();
+  openModal('payment-modal');
+}
+
+function calcUnpaid() {
+  const paid = Number(document.getElementById('pay-amount').value) || 0;
+  const unpaid = Math.max(0, currentCartTotal - paid);
+  document.getElementById('pay-unpaid-disp').textContent = `未入金: ${yen(unpaid)}`;
+}
+
+document.getElementById('pay-amount').addEventListener('input', calcUnpaid);
+
+function processTransaction() {
+  const date = document.getElementById('pay-date').value;
+  const customerId = document.getElementById('pos-customer').value;
+  const location = document.getElementById('pay-location').value;
+  const discount = Number(document.getElementById('pos-discount').value) || 0;
+  const paidAmount = Number(document.getElementById('pay-amount').value) || 0;
+  const method = document.getElementById('pay-method').value;
+  const note = document.getElementById('pay-note').value;
+
+  if(!date) { alert("日付を入力してください"); return; }
+
+  const tid = 't_' + Date.now();
+  const tx = {
+    id: tid, date, serviceDate: date, customerId, totalAmount: currentCartTotal, discount,
+    items: cart.map(c => ({ menuName: c.name, price: c.price, quantity: c.qty })),
+    location, note
+  };
+  db.transactions.push(tx);
+
+  if(paidAmount > 0) {
+    db.payments.push({
+      id: 'p_' + Date.now(), transactionId: tid, date, amount: paidAmount, method
+    });
+  }
+
+  saveDb();
+  alert("売上を登録しました。");
+  closeModal('payment-modal');
+  
+  // Reset cart
+  cart = []; document.getElementById('pos-discount').value = 0; renderCart();
+  showView('dashboard');
+}
+
+/* ==================== ダッシュボード ロジック ==================== */
+function renderDashboard() {
+  const dEl = document.getElementById('dash-date');
+  if(dEl) {
+    const today = new Date();
+    dEl.textContent = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+  }
+  document.getElementById('dash-content').innerHTML = `
+    <div class="grid-cols-2" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 20px;">
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-body">
+          <div class="text-sub">今月の売上</div>
+          <div style="font-size:28px; font-weight:bold; color:var(--primary); margin:8px 0;">${yen(calcMonthSales())}</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-body">
+          <div class="text-sub">今月の入金</div>
+          <div style="font-size:28px; font-weight:bold; color:var(--success); margin:8px 0;">${yen(calcMonthPayments())}</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-body">
+          <div class="text-sub">全期間の未入金残高</div>
+          <div style="font-size:28px; font-weight:bold; color:var(--danger); margin:8px 0;">${yen(calcTotalUnpaid())}</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>直近の取引 (開発中プレビュー)</h2></div>
+      <div class="panel-body">
+        ${db.transactions.slice(-5).reverse().map(t => {
+          const c = db.customers.find(x=>x.id === t.customerId);
+          const pays = db.payments.filter(p=>p.transactionId === t.id).reduce((s,p)=>s+p.amount,0);
+          return `<div style="border-bottom:1px solid var(--border); padding:10px 0;">
+            <div class="flex justify-between">
+              <span>${t.date} | ${c?c.name+' 様':'匿名'}</span>
+              <span style="color:var(--primary); font-weight:bold;">${yen(t.totalAmount)}</span>
+            </div>
+            <div class="text-sub" style="margin-top:4px;">
+              ${t.items.map(i=>i.menuName).join(', ')} / 入金済: ${yen(pays)}
+            </div>
+          </div>`;
+        }).join('') || '<div class="text-sub">まだ取引がありません</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function calcMonthSales() {
+  const m = iso().slice(0,7);
+  return db.transactions.filter(t => t.date.slice(0,7) === m).reduce((s,t) => s + t.totalAmount, 0);
+}
+function calcMonthPayments() {
+  const m = iso().slice(0,7);
+  return db.payments.filter(p => p.date.slice(0,7) === m).reduce((s,p) => s + p.amount, 0);
+}
+function calcTotalUnpaid() {
+  const totalSales = db.transactions.reduce((s,t) => s + t.totalAmount, 0);
+  const totalPays = db.payments.reduce((s,p) => s + p.amount, 0);
+  return Math.max(0, totalSales - totalPays);
+}
+
+/* ==================== 顧客管理 ロジック ==================== */
+function renderCustomerList() {
+  const q = document.getElementById('cust-search').value.toLowerCase();
+  const list = db.customers.filter(c => 
+    !q || c.name.toLowerCase().includes(q) || c.kana.toLowerCase().includes(q) || c.tel.includes(q)
+  ).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+
+  const tbody = document.getElementById('cust-list-body');
+  if(list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-sub" style="text-align:center; padding:20px;">該当する顧客がいません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr onclick="editCustomer('${c.id}')">
+      <td style="font-weight:bold;">${c.name}</td>
+      <td class="text-sub">${c.kana}</td>
+      <td>${c.tel || '–'}</td>
+      <td>${c.status ? `<span class="badge gray">${c.status}</span>` : '–'}</td>
+      <td>${c.plan ? `<span class="badge gold">${c.plan}</span>` : '–'}</td>
+      <td class="text-sub">${c.createdAt}</td>
+    </tr>
+  `).join('');
+}
+
+function openCustomerModal() {
+  document.getElementById('cust-modal-title').textContent = '新規顧客登録';
+  document.getElementById('cust-edit-id').value = '';
+  ['name','kana','tel','status','plan','nextvisit','complaint','note'].forEach(id => {
+    document.getElementById('cust-'+id).value = '';
+  });
+  openModal('customer-modal');
+}
+
+function editCustomer(id) {
+  const c = db.customers.find(x => x.id === id);
+  if(!c) return;
+  document.getElementById('cust-modal-title').textContent = '顧客情報の編集';
+  document.getElementById('cust-edit-id').value = c.id;
+  document.getElementById('cust-name').value = c.name;
+  document.getElementById('cust-kana').value = c.kana;
+  document.getElementById('cust-tel').value = c.tel;
+  document.getElementById('cust-status').value = c.status;
+  document.getElementById('cust-plan').value = c.plan;
+  document.getElementById('cust-nextvisit').value = c.nextVisit;
+  document.getElementById('cust-complaint').value = c.complaint;
+  document.getElementById('cust-note').value = c.note;
+  openModal('customer-modal');
+}
+
+function saveCustomer() {
+  const name = document.getElementById('cust-name').value.trim();
+  if(!name) { alert("氏名を入力してください"); return; }
+  
+  const id = document.getElementById('cust-edit-id').value;
+  const data = {
+    name, kana: document.getElementById('cust-kana').value.trim(),
+    tel: document.getElementById('cust-tel').value.trim(),
+    status: document.getElementById('cust-status').value,
+    plan: document.getElementById('cust-plan').value,
+    nextVisit: document.getElementById('cust-nextvisit').value,
+    complaint: document.getElementById('cust-complaint').value.trim(),
+    note: document.getElementById('cust-note').value.trim()
+  };
+
+  if(id) {
+    const c = db.customers.find(x => x.id === id);
+    if(c) { Object.assign(c, data); }
+  } else {
+    db.customers.push({
+      id: 'c_' + Date.now(), createdAt: iso(), ...data
+    });
+  }
+  
+  saveDb();
+  renderCustomerList();
+  closeModal('customer-modal');
+  alert("保存しました");
+}
+
+/* ==================== 履歴 ロジック ==================== */
+function renderHistory() {
+  const month = document.getElementById('hist-month').value;
+  let list = [...db.transactions];
+  if(month) {
+    list = list.filter(t => t.date.slice(0,7) === month);
+  }
+  list.sort((a,b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('hist-list-body');
+  if(list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-sub" style="text-align:center; padding:20px;">履歴がありません</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = list.map(t => {
+    const c = db.customers.find(x => x.id === t.customerId);
+    const pays = db.payments.filter(p => p.transactionId === t.id).reduce((s,p)=>s+p.amount,0);
+    const unpaid = Math.max(0, t.totalAmount - pays);
+    
+    return `
+    <tr>
+      <td>${t.date}</td>
+      <td style="font-weight:bold;">${c ? c.name : '匿名'}</td>
+      <td class="text-sub" style="font-size:12px;">${t.items.map(i=>i.menuName).join(', ')}</td>
+      <td style="color:var(--primary); font-weight:bold;">${yen(t.totalAmount)}</td>
+      <td>${yen(pays)}</td>
+      <td style="color:var(--danger);">${unpaid > 0 ? yen(unpaid) : '¥0'}</td>
+      <td>
+        ${unpaid > 0 ? `<button class="btn small" onclick="openAddPayment('${t.id}', ${unpaid})">入金</button>` : '<span class="badge green">完了</span>'}
+        <button class="btn small danger" onclick="deleteTransaction('${t.id}')">取消</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddPayment(txId, unpaid) {
+  document.getElementById('pay-add-txid').value = txId;
+  document.getElementById('pay-add-unpaid').textContent = yen(unpaid);
+  document.getElementById('pay-add-date').value = iso();
+  document.getElementById('pay-add-amount').value = unpaid;
+  openModal('payment-add-modal');
+}
+
+function saveAdditionalPayment() {
+  const txId = document.getElementById('pay-add-txid').value;
+  const date = document.getElementById('pay-add-date').value;
+  const amount = Number(document.getElementById('pay-add-amount').value);
+  const method = document.getElementById('pay-add-method').value;
+
+  if(!date || amount <= 0) { alert("正しい日付と金額を入力してください"); return; }
+  
+  db.payments.push({
+    id: 'p_' + Date.now(), transactionId: txId, date, amount, method
+  });
+  saveDb();
+  closeModal('payment-add-modal');
+  renderHistory();
+  alert("入金を登録しました");
+}
+
+function deleteTransaction(txId) {
+  if(!confirm("この売上を取消しますか？（関連する入金も削除されます）")) return;
+  db.transactions = db.transactions.filter(t => t.id !== txId);
+  db.payments = db.payments.filter(p => p.transactionId !== txId);
+  saveDb();
+  renderHistory();
+}
+
+/* ==================== 経費 ロジック ==================== */
+function renderExpenses() {
+  const month = document.getElementById('exp-month').value;
+  let list = [...db.expenses];
+  if(month) {
+    list = list.filter(e => e.date.slice(0,7) === month);
+  }
+  list.sort((a,b) => b.date.localeCompare(a.date));
+  
+  const total = list.reduce((s,e) => s + e.amount, 0);
+  document.getElementById('exp-total-disp').textContent = yen(total);
+
+  const tbody = document.getElementById('exp-list-body');
+  if(list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-sub" style="text-align:center; padding:20px;">経費はありません</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = list.map(e => `
+    <tr>
+      <td>${e.date}</td>
+      <td><span class="badge gray">${e.category}</span></td>
+      <td>${e.payee}</td>
+      <td style="color:var(--danger); font-weight:bold;">${yen(e.amount)}</td>
+      <td>
+        <button class="btn small" onclick="editExpense('${e.id}')">編集</button>
+        <button class="btn small danger" onclick="deleteExpense('${e.id}')">削除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openExpenseModal() {
+  document.getElementById('exp-id').value = '';
+  document.getElementById('exp-date').value = iso();
+  document.getElementById('exp-category').innerHTML = db.settings.expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-payee').value = '';
+  openModal('expense-modal');
+}
+
+function editExpense(id) {
+  const e = db.expenses.find(x => x.id === id);
+  if(!e) return;
+  document.getElementById('exp-id').value = e.id;
+  document.getElementById('exp-date').value = e.date;
+  document.getElementById('exp-category').innerHTML = db.settings.expenseCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('exp-category').value = e.category;
+  document.getElementById('exp-amount').value = e.amount;
+  document.getElementById('exp-payee').value = e.payee;
+  openModal('expense-modal');
+}
+
+function saveExpense() {
+  const id = document.getElementById('exp-id').value;
+  const date = document.getElementById('exp-date').value;
+  const category = document.getElementById('exp-category').value;
+  const amount = Number(document.getElementById('exp-amount').value);
+  const payee = document.getElementById('exp-payee').value.trim();
+  
+  if(!date || amount <= 0) { alert("正しい日付と金額を入力してください"); return; }
+  
+  const data = { date, category, amount, payee, method: '不明' };
+  
+  if(id) {
+    const e = db.expenses.find(x => x.id === id);
+    if(e) Object.assign(e, data);
+  } else {
+    db.expenses.push({ id: 'e_' + Date.now(), ...data });
+  }
+  
+  saveDb();
+  closeModal('expense-modal');
+  renderExpenses();
+}
+
+function deleteExpense(id) {
+  if(!confirm("この経費を削除しますか？")) return;
+  db.expenses = db.expenses.filter(e => e.id !== id);
+  saveDb();
+  renderExpenses();
+}
+
+/* ==================== 分析 ロジック ==================== */
+function renderAnalysis() {
+  const ts = db.transactions.reduce((s,t) => s + t.totalAmount, 0);
+  const tp = db.payments.reduce((s,p) => s + p.amount, 0);
+  document.getElementById('ana-total-sales').textContent = yen(ts);
+  document.getElementById('ana-total-pays').textContent = yen(tp);
+  
+  const txCount = db.transactions.length;
+  document.getElementById('ana-avg-sales').textContent = txCount > 0 ? yen(Math.floor(ts / txCount)) : '¥0';
+
+  // Service sales
+  const sMap = {};
+  db.transactions.forEach(t => {
+    t.items.forEach(i => {
+      sMap[i.menuName] = (sMap[i.menuName] || 0) + (i.price * i.quantity);
+    });
+  });
+  
+  const sorted = Object.entries(sMap).sort((a,b) => b[1] - a[1]);
+  document.getElementById('ana-service-sales').innerHTML = sorted.length === 0 ? '<div class="text-sub">データがありません</div>' :
+    sorted.map(s => `<div class="flex justify-between" style="margin-bottom:8px; border-bottom:1px dashed var(--border); padding-bottom:4px;">
+      <span>${s[0]}</span><span style="font-weight:bold;">${yen(s[1])}</span>
+    </div>`).join('');
+}
+
+/* ==================== 資金・税金 ロジック ==================== */
+function renderFunds() {
+  const init = Number(db.settings.initialFund) || 0;
+  const rate = Number(db.settings.taxReserveRate) || 0;
+  
+  const pays = db.payments.reduce((s,p) => s + p.amount, 0);
+  const exp = db.expenses.reduce((s,e) => s + e.amount, 0);
+  
+  const profit = Math.max(0, pays - exp);
+  const tax = Math.floor(profit * (rate / 100));
+  
+  const available = init + pays - exp - tax;
+  
+  document.getElementById('fund-initial').textContent = yen(init);
+  document.getElementById('fund-pays').textContent = yen(pays);
+  document.getElementById('fund-exp').textContent = yen(exp);
+  
+  document.getElementById('fund-profit').textContent = yen(profit);
+  document.getElementById('fund-tax-rate').textContent = rate + '%';
+  document.getElementById('fund-tax').textContent = yen(tax);
+  
+  document.getElementById('fund-available').textContent = yen(available);
+}
+
+function saveFundSettings() {
+  db.settings.initialFund = Number(document.getElementById('set-fund-initial').value) || 0;
+  db.settings.taxReserveRate = Number(document.getElementById('set-tax-rate').value) || 0;
+  saveDb();
+  closeModal('fund-setting-modal');
+  renderFunds();
+  alert("資金設定を保存しました");
+}
+
+/* ==================== フォロー ロジック ==================== */
+function renderFollow() {
+  const tbody = document.getElementById('follow-list-body');
+  
+  const list = db.customers.filter(c => {
+    const isPending = !c.followStatus || c.followStatus !== '再来店済み';
+    return isPending;
+  }).sort((a,b) => (a.nextVisit || '9999').localeCompare(b.nextVisit || '9999'));
+
+  if(list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-sub" style="text-align:center; padding:20px;">フォローが必要な顧客はいません</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td style="font-weight:bold;">${c.name}</td>
+      <td class="text-sub">${c.createdAt}</td>
+      <td>${c.nextVisit || '未定'}</td>
+      <td><span class="badge ${c.followStatus === '未対応' ? 'red' : 'gold'}">${c.followStatus || '未対応'}</span></td>
+      <td class="text-sub">${c.followDate || ''}</td>
+      <td><button class="btn small" onclick="openFollowModal('${c.id}')">更新</button></td>
+    </tr>`).join('');
+}
+
+function openFollowModal(cid) {
+  const c = db.customers.find(x => x.id === cid);
+  if(!c) return;
+  document.getElementById('fol-cust-id').value = c.id;
+  document.getElementById('follow-modal-name').textContent = `${c.name} 様のフォロー`;
+  document.getElementById('fol-status').value = c.followStatus || '未対応';
+  document.getElementById('fol-date').value = c.followDate || '';
+  openModal('follow-modal');
+}
+
+function saveFollow() {
+  const cid = document.getElementById('fol-cust-id').value;
+  const status = document.getElementById('fol-status').value;
+  const date = document.getElementById('fol-date').value;
+  
+  const c = db.customers.find(x => x.id === cid);
+  if(c) {
+    c.followStatus = status;
+    c.followDate = date;
+    saveDb();
+    closeModal('follow-modal');
+    renderFollow();
+  }
+}
+
+/* ==================== バックアップ ロジック ==================== */
+function exportData() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+  const el = document.createElement('a');
+  el.setAttribute("href", dataStr);
+  el.setAttribute("download", "tbf_backup_" + iso() + ".json");
+  document.body.appendChild(el);
+  el.click();
+  el.remove();
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if(imported.version === 2 && imported.customers) {
+          if(confirm("データを復元しますか？（現在のデータは失われます）")) {
+            db = imported;
+            saveDb();
+            alert("データを復元しました");
+            location.reload();
+          }
+        } else {
+          alert("対応していないデータ形式です。");
+        }
+      } catch(err) {
+        alert("ファイルの読み込みに失敗しました");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+/* ==================== 起動 ==================== */
+window.onload = () => {
+  loadAndMigrate();
+  showView('dashboard');
+};
+</script>
+</body>
+</html>
