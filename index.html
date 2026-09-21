@@ -444,6 +444,23 @@
       </div>
     </section>
 
+    
+    <!-- 返金モーダル -->
+    <div id="refund-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>売上取消と返金処理</h2><button class="btn small" onclick="closeModal('refund-modal')">✕</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="refund-tx-id">
+          <p class="text-sub" style="margin-bottom:16px;">売上を取り消します。すでに入金済みの金額がある場合は返金処理を記録します。</p>
+          <div id="refund-payments-info" style="margin-bottom:16px; font-weight:bold; color:var(--danger);"></div>
+          
+          <div class="field"><label>返金日</label><input type="date" id="refund-date"></div>
+          <div class="field"><label>返金元口座</label><select id="refund-account"><option value="acc_cash">現金から返金</option><option value="acc_bank1">銀行口座から振込等</option><option value="none">返金しない / 決済取消のみ</option></select></div>
+          
+          <button class="btn danger" style="width:100%; padding:12px;" onclick="processRefund()">売上を取消して返金を記録</button>
+        </div>
+      </div>
+    </div>
     <!-- 入金追加モーダル -->
     <div id="payment-add-modal" class="modal-overlay">
       <div class="modal">
@@ -634,7 +651,10 @@
               </div>
               <div class="flex justify-between items-center text-sub" style="margin-bottom:8px;">
                 <span>カード・QR等の未入金</span>
-                <span id="funds-unpaid-card">¥0</span>
+                <div class="flex gap-2 items-center">
+                  <span id="funds-unpaid-card">¥0</span>
+                  <button class="btn small" onclick="openClearCardModal()">着金消込</button>
+                </div>
               </div>
               <div class="flex justify-between items-center text-sub" style="margin-bottom:16px;">
                 <span>顧客からの未収金</span>
@@ -666,28 +686,60 @@
     <!-- 資金設定モーダル -->
     <div id="fund-setting-modal" class="modal-overlay">
       <div class="modal">
-        <div class="modal-head"><h2>資金計算・税務の設定</h2><button class="btn small" onclick="closeModal('fund-setting-modal')">✕</button></div>
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-          <div style="font-weight:bold; margin-bottom:10px;">口座の初期残高設定</div>
-          <div class="field"><label>現金 (初期残高)</label><input type="number" id="set-fund-cash"></div>
-          <div class="field"><label>メイン銀行口座 (初期残高)</label><input type="number" id="set-fund-bank"></div>
-          
-          <div class="field"><label>最低運転資金 (円)</label><input type="number" id="set-min-fund" placeholder="常に残しておく金額"></div>
+        <div class="modal-head"><h2>資金計算・税務の初期設定</h2><button class="btn small" onclick="closeModal('fund-setting-modal')">✕</button></div>
+        <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+          <div style="background:#f0f8ff; padding:12px; border-radius:8px; margin-bottom:16px; font-size:13px; color:#333;">
+            より正確な残高と税額を計算するために、初期設定を行ってください。<br>
+            ※一度設定すれば、以降は売上や経費の入力に応じて自動計算されます。
+          </div>
+
+          <div style="font-weight:bold; margin-bottom:10px;">① 管理開始日</div>
+          <div class="field">
+            <label>このシステムでの資金管理を開始する日</label>
+            <input type="date" id="set-fund-date">
+            <div style="font-size:11px; color:#777;">例: 2026-01-01。この日より前の取引は、「初期残高」にすでに含まれているものとして残高計算から除外されます。</div>
+          </div>
+
+          <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+          <div style="font-weight:bold; margin-bottom:10px;">② 取引開始前の口座残高</div>
+          <div class="field">
+            <label>現金 (初期残高)</label>
+            <input type="number" id="set-fund-cash" placeholder="例: 100000">
+          </div>
+          <div class="field">
+            <label>メイン銀行口座 (初期残高)</label>
+            <input type="number" id="set-fund-bank" placeholder="例: 500000">
+          </div>
+
+          <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+          <div style="font-weight:bold; margin-bottom:10px;">③ 開始時点の未決済残高</div>
+          <div class="grid-cols-2">
+            <div class="field"><label>顧客からの未収金</label><input type="number" id="set-fund-unpaid-cust" placeholder="例: 15000"></div>
+            <div class="field"><label>未払の経費</label><input type="number" id="set-fund-unpaid-exp" placeholder="例: 20000"></div>
+          </div>
+          <div class="field"><label>未納の税金準備額</label><input type="number" id="set-fund-unpaid-tax" placeholder="例: 0"></div>
           
           <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
-          <div style="font-weight:bold; margin-bottom:10px;">税金概算設定</div>
+          <div style="font-weight:bold; margin-bottom:10px;">④ その他の資金設定</div>
+          <div class="field">
+            <label>最低運転資金 (円)</label>
+            <input type="number" id="set-min-fund" placeholder="常に残しておく金額">
+          </div>
+          
+          <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+          <div style="font-weight:bold; margin-bottom:10px;">⑤ 税金概算設定</div>
           
           <div class="field">
             <label>計算モード</label>
             <select id="set-tax-mode" onchange="toggleTaxSettings()">
-              <option value="auto">自動概算 (所得税・住民税等)</option>
+              <option value="auto">自動概算 (所得税・住民税・事業税・消費税)</option>
               <option value="manual">手動積立 (利益の一定割合)</option>
             </select>
           </div>
           
           <div id="set-tax-manual-area" class="field" style="display:none; flex-direction:column; gap:6px;">
             <label>手動積立率 (%)</label>
-            <input type="number" id="set-tax-rate">
+            <input type="number" id="set-tax-rate" placeholder="例: 20">
           </div>
           
           <div id="set-tax-auto-area">
@@ -700,15 +752,39 @@
               </select>
             </div>
             <div class="field"><label>社会保険料・その他控除 (年間概算額)</label><input type="number" id="set-tax-soc"></div>
+            <div class="field"><label>事業区分 (個人事業税・消費税の概算に使用)</label>
+              <select id="set-tax-business">
+                <option value="第1種">第1種 (飲食店等)</option>
+                <option value="第2種">第2種</option>
+                <option value="第3種">第3種 (マッサージ・整体等)</option>
+                <option value="第5種">第5種 (サービス業一般)</option>
+                <option value="対象外">個人事業税 対象外</option>
+              </select>
+            </div>
             <div class="field"><label>消費税の課税事業者</label>
               <select id="set-tax-ent">
                 <option value="false">免税事業者</option>
-                <option value="true">課税事業者 (簡易概算)</option>
+                <option value="true">課税事業者 (簡易課税)</option>
               </select>
             </div>
           </div>
           
           <button class="btn primary" style="width:100%; padding:12px; margin-top:20px;" onclick="saveFundSettings()">保存する</button>
+        </div>
+      </div>
+    </div>
+        <!-- カード着金消込モーダル -->
+    <div id="clear-card-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>カード・QR決済の着金消込</h2><button class="btn small" onclick="closeModal('clear-card-modal')">✕</button></div>
+        <div class="modal-body">
+          <p class="text-sub" style="margin-bottom:16px;">銀行等に着金した決済を選択し、手数料を引いた実際の入金額を記録します。</p>
+          <div id="clear-card-list" style="max-height: 250px; overflow-y: auto; margin-bottom:16px;"></div>
+          
+          <div class="field"><label>着金日</label><input type="date" id="clear-card-date"></div>
+          <div class="field"><label>入金先口座</label><select id="clear-card-account"><option value="acc_bank1">メイン銀行口座</option><option value="acc_cash">現金</option></select></div>
+          
+          <button class="btn primary" style="width:100%; padding:12px;" onclick="saveClearCard()">選択した決済を消込</button>
         </div>
       </div>
     </div>
@@ -785,9 +861,10 @@ const KEY_SET_V1 = 'crm-settings-v1';
 const KEY_V2 = 'crm-data-v2';
 const KEY_V3 = 'crm-data-v3';
 const KEY_V4 = 'crm-data-v4';
+const KEY_V5 = 'crm-data-v5';
 
 let db = {
-  version: 3,
+  version: 5,
   customers: [],
   transactions: [],
   payments: [],
@@ -817,6 +894,9 @@ let db = {
     taxReserveRate: 20,
     initialFund: 0,
     initialFundDate: "",
+    initialUnpaidCust: 0,
+    initialUnpaidExp: 0,
+    initialUnpaidTax: 0,
     minimumOperatingFunds: 0,
     taxCalcMode: 'auto',
     taxSettings: {
@@ -833,10 +913,14 @@ let db = {
 };
 
 function saveDb() {
-  localStorage.setItem(KEY_V4, JSON.stringify(db));
+  localStorage.setItem(KEY_V5, JSON.stringify(db));
 }
 
 function loadAndMigrate() {
+  const v5Json = localStorage.getItem(KEY_V5);
+  if (v5Json) {
+    try { db = JSON.parse(v5Json); return; } catch(e) { console.error("v5 load failed", e); }
+  }
   const v4Json = localStorage.getItem(KEY_V4);
   if (v4Json) {
     try { db = JSON.parse(v4Json); return; } catch(e) { console.error("v4 load failed", e); }
@@ -987,15 +1071,28 @@ function iso(d=new Date()){ return `${d.getFullYear()}-${String(d.getMonth()+1).
 
 /* ==================== 集計エンジン (Aggregation Engine) ==================== */
 function getSales(startDate, endDate) {
-  return db.transactions
+  const txs = db.transactions
     .filter(t => !t.isCancelled)
-    .filter(t => (!startDate || t.date >= startDate) && (!endDate || t.date <= endDate))
-    .reduce((s, t) => s + t.totalAmount, 0);
+    .filter(t => (!startDate || t.date >= startDate) && (!endDate || t.date <= endDate));
+  
+  let sales = 0;
+  txs.forEach(t => {
+    // 回数券消化による支払いは売上から控除（二重計上防止）
+    const ticketPays = db.payments.filter(p => p.transactionId === t.id && p.method === '回数券消化' && p.type === '入金').reduce((s,p)=>s+p.amount, 0);
+    sales += Math.max(0, t.totalAmount - ticketPays);
+  });
+  return sales;
 }
 
-function getPayments(startDate, endDate) {
+function getPayments(startDate, endDate, status = null) {
   return db.payments
-    .filter(p => (!startDate || p.date >= startDate) && (!endDate || p.date <= endDate))
+    .filter(p => {
+      const inRange = (!startDate || p.date >= startDate) && (!endDate || p.date <= endDate);
+      const matchStatus = !status || p.status === status;
+      // 回数券消化は現金入金ではないため入金集計から除外
+      const isNotTicket = p.method !== '回数券消化';
+      return inRange && matchStatus && isNotTicket;
+    })
     .reduce((s, p) => s + (p.type === '返金' ? -p.amount : p.amount), 0);
 }
 
@@ -1019,35 +1116,62 @@ function getTaxReserve(year, manualProfit = null, manualSales = null, manualExp 
   if (profit <= 0) return 0;
   
   if (db.settings.taxCalcMode === 'manual') {
-    return Math.floor(profit * (db.settings.taxReserveRate / 100));
+    return Math.floor(profit * ((db.settings.taxReserveRate !== undefined ? db.settings.taxReserveRate : 20) / 100));
   }
   
-  const s = db.settings.taxSettings;
+  const s = db.settings.taxSettings || {};
   const blueDed = s.blueReturnDeduction || 0;
   const socIns = s.socialInsurance || 0;
-  const basicDed = 480000;
   
-  const taxableIncome = Math.max(0, profit - blueDed - socIns - basicDed);
+  const totalIncome = Math.max(0, profit - blueDed);
   
+  // 基礎控除（所得税）
+  let basicDed = 480000;
+  if (totalIncome > 25000000) basicDed = 0;
+  else if (totalIncome > 24500000) basicDed = 160000;
+  else if (totalIncome > 24000000) basicDed = 320000;
+  
+  const taxableIncome = Math.max(0, totalIncome - socIns - basicDed);
+  
+  // 所得税計算
   let incomeTax = 0;
   if(taxableIncome <= 1950000) incomeTax = taxableIncome * 0.05;
   else if(taxableIncome <= 3300000) incomeTax = taxableIncome * 0.10 - 97500;
   else if(taxableIncome <= 6950000) incomeTax = taxableIncome * 0.20 - 427500;
   else if(taxableIncome <= 9000000) incomeTax = taxableIncome * 0.23 - 636000;
-  else incomeTax = taxableIncome * 0.33 - 1536000;
+  else if(taxableIncome <= 18000000) incomeTax = taxableIncome * 0.33 - 1536000;
+  else if(taxableIncome <= 40000000) incomeTax = taxableIncome * 0.40 - 2796000;
+  else incomeTax = taxableIncome * 0.45 - 4796000;
   incomeTax = Math.max(0, incomeTax);
   incomeTax = incomeTax * 1.021; // 復興特別所得税
 
-  const residentTax = taxableIncome > 0 ? (taxableIncome * 0.10 + 5000) : 0;
-  const enterpriseTax = Math.max(0, profit - 2900000) * 0.05;
+  // 住民税の基礎控除は43万円
+  let resBasicDed = 430000;
+  if (totalIncome > 25000000) resBasicDed = 0;
+  else if (totalIncome > 24500000) resBasicDed = 150000;
+  else if (totalIncome > 24000000) resBasicDed = 290000;
+  const resTaxableIncome = Math.max(0, totalIncome - socIns - resBasicDed);
+  const residentTax = resTaxableIncome > 0 ? (resTaxableIncome * 0.10 + 5000) : 0;
   
+  // 個人事業税
+  let enterpriseTax = 0;
+  const bType = s.businessType || '第3種';
+  if (bType !== '対象外') {
+    let entTaxRate = 0.05; // 第1種、第3種
+    if (bType === '第2種') entTaxRate = 0.04;
+    enterpriseTax = Math.max(0, profit - 2900000) * entTaxRate;
+  }
+  
+  // 消費税（簡易課税）
   let consumptionTax = 0;
   if(s.taxableEnterprise) {
     const sales = manualSales !== null ? manualSales : getSales(`${year}-01-01`, `${year}-12-31`);
-    const exp = manualExp !== null ? manualExp : getExpenses(`${year}-01-01`, `${year}-12-31`, null);
-    const salesTax = sales * 0.1;
-    const expTax = exp * 0.1;
-    consumptionTax = Math.max(0, salesTax - expTax);
+    const salesTax = sales * (10 / 110);
+    let deemedRate = 0.5; // default 第5種 (サービス業)
+    if (bType === '第1種') deemedRate = 0.9;
+    else if (bType === '第2種') deemedRate = 0.8;
+    else if (bType === '第3種') deemedRate = 0.7;
+    consumptionTax = salesTax * (1 - deemedRate);
   }
   
   return Math.floor(incomeTax + residentTax + enterpriseTax + consumptionTax);
@@ -1055,24 +1179,48 @@ function getTaxReserve(year, manualProfit = null, manualSales = null, manualExp 
 
 function getUnpaidTaxes() {
   if (!db.settings.taxCalcMode) return 0;
-  const years = [...new Set(db.transactions.map(t => t.date.slice(0,4)))];
-  let totalReserve = 0;
-  years.forEach(y => totalReserve += getTaxReserve(y));
-  const paidTaxes = db.taxPayments.reduce((s,t) => s + t.amount, 0);
-  return Math.max(0, totalReserve - paidTaxes);
+  const initYear = (db.settings.initialFundDate || '0000').slice(0,4);
+  const yearsSet = new Set(db.transactions.map(t => t.date.slice(0,4)));
+  yearsSet.add(new Date().getFullYear().toString());
+  
+  let totalUnpaid = Number(db.settings.initialUnpaidTax) || 0;
+  
+  // Calculate for years >= initialFundYear
+  yearsSet.forEach(y => {
+    if (y >= initYear) {
+      const reserve = getTaxReserve(y);
+      const paid = db.taxPayments.filter(p => p.year === y).reduce((s,t) => s + t.amount, 0);
+      totalUnpaid += Math.max(0, reserve - paid);
+    }
+  });
+  
+  // Subtract any tax payments made for past years (if they were paid after initialFundDate)
+  const pastTaxPays = db.taxPayments.filter(p => p.year < initYear && p.date >= (db.settings.initialFundDate || '0000-00-00')).reduce((s,p)=>s+p.amount, 0);
+  
+  return Math.max(0, totalUnpaid - pastTaxPays);
 }
 
 function getCashBalance() {
-  const accounts = db.settings.accounts || [{id: 'acc_cash', initialBalance: db.settings.initialFund || 0}];
+  const accounts = db.settings.accounts || [{id: 'acc_cash', initialBalance: db.settings.initialFund || 0}, {id:'acc_bank1', initialBalance: 0}];
   const init = accounts.reduce((s, a) => s + Number(a.initialBalance || 0), 0);
-  const pays = getPayments(null, null);
-  const paidExp = getExpenses(null, null, '支払済み');
-  const paidTaxes = db.taxPayments.reduce((s,t) => s + t.amount, 0);
+  const initDate = db.settings.initialFundDate || '0000-00-00';
+  
+  const pays = db.payments.filter(p => p.date >= initDate && p.status === '入金済み').reduce((s, p) => s + (p.type === '返金' ? -(p.amount - (p.fee||0)) : (p.amount - (p.fee||0))), 0);
+  const paidExp = db.expenses.filter(e => e.paidDate >= initDate && e.status === '支払済み').reduce((s, e) => s + e.amount, 0);
+  const paidTaxes = db.taxPayments.filter(tp => tp.date >= initDate).reduce((s,t) => s + t.amount, 0);
+  
   return init + pays - paidExp - paidTaxes;
 }
 
 function getAvailableFunds() {
-  return getCashBalance() - getExpenses(null, null, '未払') - getUnpaidTaxes() - (Number(db.settings.minimumOperatingFunds) || 0);
+  const initDate = db.settings.initialFundDate || '0000-00-00';
+  
+  let totalUnpaidExp = Number(db.settings.initialUnpaidExp) || 0;
+  const unpaidNewExp = db.expenses.filter(e => e.date >= initDate && e.status === '未払').reduce((s,e)=>s+e.amount, 0);
+  const paidOldExp = db.expenses.filter(e => e.date < initDate && e.status === '支払済み' && e.paidDate >= initDate).reduce((s,e)=>s+e.amount, 0);
+  totalUnpaidExp = Math.max(0, totalUnpaidExp - paidOldExp) + unpaidNewExp;
+  
+  return getCashBalance() - totalUnpaidExp - getUnpaidTaxes() - (Number(db.settings.minimumOperatingFunds) || 0);
 }
 
 /* ==================== 画面制御 ==================== */
@@ -1101,8 +1249,13 @@ function showView(name){
   if(name === 'funds') {
     const cashObj = db.settings.accounts.find(a => a.id === 'acc_cash');
     const bankObj = db.settings.accounts.find(a => a.id === 'acc_bank1');
+    document.getElementById('set-fund-date').value = db.settings.initialFundDate || '';
     document.getElementById('set-fund-cash').value = cashObj ? cashObj.initialBalance : (db.settings.initialFund || 0);
     document.getElementById('set-fund-bank').value = bankObj ? bankObj.initialBalance : 0;
+    
+    document.getElementById('set-fund-unpaid-cust').value = db.settings.initialUnpaidCust || 0;
+    document.getElementById('set-fund-unpaid-exp').value = db.settings.initialUnpaidExp || 0;
+    document.getElementById('set-fund-unpaid-tax').value = db.settings.initialUnpaidTax || 0;
     
     document.getElementById('set-min-fund').value = db.settings.minimumOperatingFunds || 0;
     document.getElementById('set-tax-mode').value = db.settings.taxCalcMode || 'auto';
@@ -1239,7 +1392,8 @@ function processTransaction() {
 
   if(paidAmount > 0) {
     db.payments.push({
-      id: 'p_' + Date.now(), transactionId: tid, date, amount: paidAmount, method
+      id: 'p_' + Date.now(), transactionId: tid, date, amount: paidAmount, method,
+      status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', type: '入金', fee: 0, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
     });
   }
 
@@ -1307,8 +1461,23 @@ function renderDashboard() {
 
   // 資金・税金
   const cash = getCashBalance();
-  const unpaidExp = getExpenses(null, null, '未払');
-  const unpaidSales = getSales(null, null) - getPayments(null, null);
+  const initDate = db.settings.initialFundDate || '0000-00-00';
+  let totalUnpaidExp = Number(db.settings.initialUnpaidExp) || 0;
+  totalUnpaidExp = Math.max(0, totalUnpaidExp - db.expenses.filter(e => e.date < initDate && e.status === '支払済み' && e.paidDate >= initDate).reduce((s,e)=>s+e.amount, 0)) + db.expenses.filter(e => e.date >= initDate && e.status === '未払').reduce((s,e)=>s+e.amount, 0);
+  const unpaidExp = totalUnpaidExp;
+
+  let totalUnpaidCust = Number(db.settings.initialUnpaidCust) || 0;
+  let newUnpaidSales = 0;
+  db.transactions.filter(t => !t.isCancelled && t.date >= initDate).forEach(t => {
+    const pays = db.payments.filter(p => p.transactionId === t.id && p.type !== '返金').reduce((s,p)=>s+p.amount,0);
+    newUnpaidSales += Math.max(0, t.totalAmount - pays);
+  });
+  const pastPays = db.payments.filter(p => p.date >= initDate && p.type !== '返金').reduce((s,p)=> {
+    const tx = db.transactions.find(x => x.id === p.transactionId);
+    return s + (tx && tx.date < initDate ? p.amount : 0);
+  }, 0);
+  
+  const unpaidSales = Math.max(0, totalUnpaidCust - pastPays) + newUnpaidSales;
   const unpaidTaxes = getUnpaidTaxes();
   const avail = getAvailableFunds();
 
@@ -1505,7 +1674,8 @@ function saveAdditionalPayment() {
   }
   
   db.payments.push({
-    id: 'p_' + Date.now(), transactionId: txId, date, amount, method, type: '入金'
+    id: 'p_' + Date.now(), transactionId: txId, date, amount, method, type: '入金',
+    status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', fee: 0, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
   });
   saveDb();
   closeModal('payment-add-modal');
@@ -1514,21 +1684,58 @@ function saveAdditionalPayment() {
 }
 
 function deleteTransaction(txId) {
-  if(!confirm("この売上を取消しますか？（すでに入金済みの金額は「返金」として記録されます）")) return;
+  const t = db.transactions.find(x => x.id === txId);
+  if(!t) return;
+  
+  const pays = db.payments.filter(p => p.transactionId === txId && p.type !== '返金');
+  const paidTotal = pays.reduce((s,p)=>s+p.amount, 0);
+  
+  document.getElementById('refund-tx-id').value = txId;
+  document.getElementById('refund-date').value = iso();
+  
+  if (paidTotal > 0) {
+    document.getElementById('refund-payments-info').textContent = `入金済額: ${yen(paidTotal)} （返金が必要です）`;
+    document.getElementById('refund-account').value = 'acc_cash';
+  } else {
+    document.getElementById('refund-payments-info').textContent = '入金済の金額はありません。そのまま取消します。';
+    document.getElementById('refund-account').value = 'none';
+  }
+  
+  openModal('refund-modal');
+}
+
+function processRefund() {
+  const txId = document.getElementById('refund-tx-id').value;
+  const date = document.getElementById('refund-date').value;
+  const acc = document.getElementById('refund-account').value;
+  
   const t = db.transactions.find(x => x.id === txId);
   if(!t) return;
   t.isCancelled = true;
   
   const pays = db.payments.filter(p => p.transactionId === txId && p.type !== '返金');
-  pays.forEach(p => {
+  const paidTotal = pays.reduce((s,p)=>s+p.amount, 0);
+  
+  if (paidTotal > 0 && acc !== 'none') {
     db.payments.push({
       id: 'p_' + Date.now() + Math.random(),
-      transactionId: txId, date: iso(), amount: p.amount, method: p.method, type: '返金'
+      transactionId: txId, date: date, amount: paidTotal, method: '返金', type: '返金',
+      status: '入金済み', fee: 0, accountId: acc
     });
+  }
+  
+  // 未着金(決済完了)だったものは、返金によって銀行をマイナスにしないため、元の支払いレコード自体を取り消すのが自然だが、
+  // 履歴保持のため、上記のように「返金」として処理するか、未着金分はstatusを「取消」にするのが正しい。
+  pays.forEach(p => {
+    if (p.status === '決済完了') {
+      p.status = '取消済'; // 未着金のカード決済は着金待ちから外す
+    }
   });
   
   saveDb();
+  closeModal('refund-modal');
   renderHistory();
+  alert("売上を取消しました。");
 }
 
 /* ==================== 経費 ロジック ==================== */
@@ -1758,10 +1965,27 @@ function renderFunds() {
   const balMap = {};
   cashAccounts.forEach(a => balMap[a.id] = Number(a.initialBalance || 0));
   
-  db.payments.forEach(p => { if (balMap[p.accountId] !== undefined) balMap[p.accountId] += (p.type==='入金' ? p.amount : -p.amount); });
-  db.expenses.forEach(e => { if (e.status === '支払済み' && balMap[e.accountId] !== undefined) balMap[e.accountId] -= e.amount; });
-  // Tax payments currently default to cash if no accountId
-  db.taxPayments.forEach(tp => { balMap[tp.accountId || 'acc_cash'] -= tp.amount; });
+
+  const initDate = db.settings.initialFundDate || '0000-00-00';
+  
+  db.payments.forEach(p => { 
+    if (p.date >= initDate && p.status === '入金済み' && balMap[p.accountId] !== undefined) {
+      const netAmount = p.amount - (p.fee || 0);
+      balMap[p.accountId] += (p.type==='入金' ? netAmount : -netAmount); 
+    }
+  });
+  
+  db.expenses.forEach(e => { 
+    if (e.status === '支払済み' && e.paidDate >= initDate && balMap[e.accountId] !== undefined) {
+      balMap[e.accountId] -= e.amount; 
+    }
+  });
+  
+  db.taxPayments.forEach(tp => { 
+    if (tp.date >= initDate && balMap[tp.accountId || 'acc_cash'] !== undefined) {
+      balMap[tp.accountId || 'acc_cash'] -= tp.amount; 
+    }
+  });
   
   const totalCash = Object.values(balMap).reduce((a,b) => a+b, 0);
   
@@ -1778,10 +2002,22 @@ function renderFunds() {
   const unpaidExpTotal = getExpenses(null, null, '未払');
   document.getElementById('funds-unpaid-exp').textContent = yen(unpaidExpTotal);
   
-  const totalSalesToDate = getSales(null, null);
-  const totalPaysToDate = getPayments(null, null);
-  const totalUnpaidCust = Math.max(0, totalSalesToDate - totalPaysToDate);
-  document.getElementById('funds-unpaid-card').textContent = '¥0'; // Future: distinguish card/QR
+  
+  let initUnpaidCust = Number(db.settings.initialUnpaidCust) || 0;
+  let newUnpaid = 0;
+  db.transactions.filter(t => !t.isCancelled && t.date >= initDate).forEach(t => {
+    const pays = db.payments.filter(p => p.transactionId === t.id && p.type !== '返金').reduce((s,p)=>s+p.amount,0);
+    newUnpaid += Math.max(0, t.totalAmount - pays);
+  });
+  const pastPays = db.payments.filter(p => p.date >= initDate && p.type !== '返金').reduce((s,p)=> {
+    const tx = db.transactions.find(x => x.id === p.transactionId);
+    return s + (tx && tx.date < initDate ? p.amount : 0);
+  }, 0);
+  const totalUnpaidCust = Math.max(0, initUnpaidCust - pastPays) + newUnpaid;
+  
+  const unpaidCard = db.payments.filter(p => p.status === '決済完了' && p.type === '入金').reduce((s,p)=>s+p.amount, 0);
+  
+  document.getElementById('funds-unpaid-card').textContent = yen(unpaidCard);
   document.getElementById('funds-unpaid-cust').textContent = yen(totalUnpaidCust);
   
   // Available Funds
@@ -1850,6 +2086,11 @@ function saveFundSettings() {
   const bankObj = db.settings.accounts.find(a => a.id === 'acc_bank1');
   if(bankObj) bankObj.initialBalance = Number(document.getElementById('set-fund-bank').value) || 0;
   
+  db.settings.initialFundDate = document.getElementById('set-fund-date').value;
+  db.settings.initialUnpaidCust = Number(document.getElementById('set-fund-unpaid-cust').value) || 0;
+  db.settings.initialUnpaidExp = Number(document.getElementById('set-fund-unpaid-exp').value) || 0;
+  db.settings.initialUnpaidTax = Number(document.getElementById('set-fund-unpaid-tax').value) || 0;
+  
   db.settings.minimumOperatingFunds = Number(document.getElementById('set-min-fund').value) || 0;
   db.settings.taxCalcMode = document.getElementById('set-tax-mode').value;
   db.settings.taxReserveRate = Number(document.getElementById('set-tax-rate').value) || 20;
@@ -1917,6 +2158,64 @@ function saveFollow() {
   }
 }
 
+
+/* ==================== カード着金消込 ==================== */
+function openClearCardModal() {
+  const list = db.payments.filter(p => p.status === '決済完了' && p.type === '入金');
+  const listEl = document.getElementById('clear-card-list');
+  if(list.length === 0) {
+    listEl.innerHTML = '<div class="text-sub" style="text-align:center;">未着金の決済はありません</div>';
+  } else {
+    listEl.innerHTML = list.map(p => {
+      const tx = db.transactions.find(t => t.id === p.transactionId);
+      const cust = db.customers.find(c => c.id === tx?.customerId);
+      return `
+      <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:8px; display:flex; align-items:center; gap:12px;">
+        <input type="checkbox" class="clear-card-chk" value="${p.id}" style="width:20px; height:20px;" onchange="updateClearCardTotal()">
+        <div style="flex:1;">
+          <div style="font-weight:bold;">${p.date} ${p.method}</div>
+          <div class="text-sub" style="font-size:11px;">${cust ? cust.name : '匿名'} / ${yen(p.amount)}</div>
+        </div>
+        <div class="field" style="margin:0; width:100px;">
+          <label style="font-size:10px;">手数料 (円)</label>
+          <input type="number" class="clear-card-fee" id="fee_${p.id}" value="0" style="padding:6px; font-size:13px;" oninput="updateClearCardTotal()">
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('clear-card-date').value = iso();
+  openModal('clear-card-modal');
+}
+
+function updateClearCardTotal() {
+  // Can add dynamic total text if needed
+}
+
+function saveClearCard() {
+  const date = document.getElementById('clear-card-date').value;
+  const accountId = document.getElementById('clear-card-account').value;
+  if (!date) { alert('着金日を入力してください'); return; }
+  
+  const chks = document.querySelectorAll('.clear-card-chk:checked');
+  if (chks.length === 0) { alert('消込する決済を選択してください'); return; }
+  
+  chks.forEach(chk => {
+    const p = db.payments.find(x => x.id === chk.value);
+    if(p) {
+      const fee = Number(document.getElementById('fee_' + p.id).value) || 0;
+      p.status = '入金済み';
+      p.fee = fee;
+      p.accountId = accountId;
+      p.date = date; // 着金日に上書き（売上日はtransactionにある）
+    }
+  });
+  
+  saveDb();
+  closeModal('clear-card-modal');
+  renderFunds();
+  renderDashboard();
+  alert(chks.length + "件の決済を消込しました。手数料は入金額から引かれます。");
+}
 /* ==================== バックアップ ロジック ==================== */
 function exportData() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
