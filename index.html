@@ -2478,6 +2478,57 @@ function syncFromLineFile(){
   saveDb();
   if(r.added || r.custAdded) setTimeout(() => alert(`公式LINEの予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`), 300);
 }
+/* ---- スマホ／GitHub Pages用：合言葉で暗号化された予約データを取り込む ---- */
+const SYNC_PBKDF2_ITER = 200000; // tools/sync_line_bookings.py の ITER と揃える
+let encSyncState = ''; // '' | 'need-pass' | 'bad-pass' | 'ok'
+function loadEncryptedSync(){
+  if(window.LINE_BOOKINGS_SYNC) return; // このMacでは平文の同期ファイルを使う
+  const s = document.createElement('script');
+  s.src = 'line-bookings.enc.js?t=' + Date.now(); // 古いキャッシュを使わない
+  s.onload = () => syncFromEncrypted();
+  document.head.appendChild(s);
+}
+async function decryptSync(b64, pass){
+  const raw = Uint8Array.from(atob(String(b64).replace(/\s/g,'')), c => c.charCodeAt(0));
+  if(new TextDecoder().decode(raw.slice(0,8)) !== 'Salted__') throw new Error('format');
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits']);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name:'PBKDF2', salt:raw.slice(8,16), iterations:SYNC_PBKDF2_ITER, hash:'SHA-256' }, base, 384));
+  const key = await crypto.subtle.importKey('raw', bits.slice(0,32), 'AES-CBC', false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name:'AES-CBC', iv:bits.slice(32,48) }, key, raw.slice(16));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function syncFromEncrypted(){
+  if(!window.LINE_BOOKINGS_ENC) return;
+  let pass = '';
+  try { pass = localStorage.getItem('crm-sync-pass') || ''; } catch(e){}
+  if(!pass){ encSyncState = 'need-pass'; refreshAfterSync(); return; }
+  try {
+    const data = await decryptSync(window.LINE_BOOKINGS_ENC, pass);
+    const r = mergeLineBookings(data.bookings || []);
+    db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
+    saveDb();
+    encSyncState = 'ok';
+    refreshAfterSync();
+    if(r.added || r.custAdded) alert(`公式LINEの予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`);
+  } catch(e){ encSyncState = 'bad-pass'; refreshAfterSync(); }
+}
+function setSyncPass(){
+  const p = prompt('公式LINE予約の合言葉を入力してください（Macで登録したものと同じ）');
+  if(!p) return;
+  try { localStorage.setItem('crm-sync-pass', p); } catch(e){}
+  syncFromEncrypted();
+}
+function refreshAfterSync(){
+  const v = document.querySelector('.view.active');
+  if(v && v.id === 'view-dashboard') renderDashboard();
+  if(v && v.id === 'view-bookings') renderBookings();
+}
+function encSyncNotice(){
+  if(encSyncState === 'need-pass') return `<span class="badge red" style="cursor:pointer;" onclick="setSyncPass()">🔑 公式LINEの予約を表示するには、ここをタップして合言葉を入力</span>`;
+  if(encSyncState === 'bad-pass') return `<span class="badge red" style="cursor:pointer;" onclick="setSyncPass()">🔑 合言葉が違います。タップして入力し直してください</span>`;
+  return '';
+}
+
 function importLineBookingsFile(){
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.js,.json,application/json,text/javascript';
@@ -2513,8 +2564,9 @@ function renderBookings(){
   ];
   document.getElementById('bk-tabs').innerHTML = tabs.map(([k,label,f]) =>
     `<button class="btn small ${bkTab===k?'primary':''}" onclick="bkTab='${k}'; renderBookings()">${label} (${all.filter(f).length})</button>`).join('');
-  document.getElementById('bk-sync-info').textContent = db.settings.lineSyncedAt
-    ? `公式LINE 最終同期: ${db.settings.lineSyncedAt.replace('T',' ').slice(0,16)}` : '公式LINEとはまだ同期していません';
+  document.getElementById('bk-sync-info').innerHTML = (db.settings.lineSyncedAt
+    ? `公式LINE 最終同期: ${hEsc(db.settings.lineSyncedAt.replace('T',' ').slice(0,16))}` : '公式LINEとはまだ同期していません')
+    + (encSyncNotice() ? '<div style="margin-top:6px;">' + encSyncNotice() + '</div>' : '');
 
   const q = (document.getElementById('bk-search').value||'').trim();
   const filt = tabs.find(t => t[0]===bkTab)[2];
@@ -2827,6 +2879,7 @@ function dashBookingsHtml(){
     </div>`;
   };
   const alerts = [
+    encSyncNotice(),
     needPrice ? `<span class="badge red" style="cursor:pointer;" onclick="bkTab='needs'; showView('bookings')">コース・料金の確認が必要：${needPrice}件</span>` : '',
     unprocessed ? `<span class="badge red" style="cursor:pointer;" onclick="bkTab='needs'; showView('bookings')">来店処理が未完了：${unprocessed}件</span>` : ''
   ].join(' ');
@@ -2890,6 +2943,7 @@ window.onload = () => {
   loadAndMigrate();
   ensureBookingSchema();
   syncFromLineFile();
+  loadEncryptedSync();
   showView('dashboard');
 };
 </script>

@@ -2,3 +2,6 @@
 line-bookings.js
 line-bookings*.json
 .DS_Store
+
+# 公式LINEの配信原稿（公開リポジトリに上げない）
+line-drafts/
