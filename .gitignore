@@ -1,0 +1,4 @@
+# 公式LINE予約の同期データ（お客様の個人情報を含むため公開リポジトリに上げない）
+line-bookings.js
+line-bookings*.json
+.DS_Store

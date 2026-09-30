@@ -221,6 +221,7 @@
     <div class="logo">零 -ZERO-</div>
     <nav>
       <a data-nav="dashboard" class="active" onclick="showView('dashboard')">🏠 ダッシュボード</a>
+      <a data-nav="bookings" onclick="showView('bookings')">📅 予約管理</a>
       <a data-nav="pos" onclick="showView('pos')">🛒 売上・入金</a>
       <a data-nav="expenses" onclick="showView('expenses')">💸 経費管理</a>
       <a data-nav="history" onclick="showView('history')">📜 取引履歴</a>
@@ -235,6 +236,7 @@
   <!-- Bottom Nav (Mobile) -->
   <nav class="bottom-nav">
     <a data-nav="dashboard" class="active" onclick="showView('dashboard')"><i>🏠</i>ホーム</a>
+    <a data-nav="bookings" onclick="showView('bookings')"><i>📅</i>予約</a>
     <a data-nav="pos" onclick="showView('pos')"><i>🛒</i>売上</a>
     <a data-nav="expenses" onclick="showView('expenses')"><i>💸</i>経費</a>
     <a data-nav="history" onclick="showView('history')"><i>📜</i>履歴</a>
@@ -543,6 +545,85 @@
         </div>
       </div>
     </div>
+
+    <!-- 予約管理（公式LINE連携） -->
+    <section id="view-bookings" class="view">
+      <div class="flex justify-between items-center" style="margin-bottom: 24px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h1>予約管理</h1>
+          <div class="text-sub" id="bk-sync-info"></div>
+        </div>
+        <div class="flex gap-3" style="flex-wrap:wrap;">
+          <button class="btn" onclick="importLineBookingsFile()">⤓ LINE予約を取り込む</button>
+          <button class="btn primary" onclick="openManualBooking()">＋ 予約を手動追加</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head" style="flex-wrap:wrap; gap:8px;">
+          <div class="flex gap-3" style="flex-wrap:wrap;" id="bk-tabs"></div>
+          <input type="text" id="bk-search" class="field" style="margin:0; width:220px; max-width:100%;" placeholder="名前・コースで検索" oninput="renderBookings()">
+        </div>
+        <div class="panel-body" id="bk-list"></div>
+      </div>
+    </section>
+
+    <!-- 来店処理モーダル -->
+    <div id="bk-visit-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2 id="bk-visit-title">来店処理</h2>
+          <button class="btn small" onclick="closeModal('bk-visit-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="bk-visit-id">
+          <div class="text-sub" id="bk-visit-request" style="margin-bottom:12px; white-space:pre-wrap;"></div>
+          <div class="field"><label>実施コース</label><select id="bk-visit-menu" onchange="bkVisitMenuChanged()"></select></div>
+          <div class="grid-cols-2">
+            <div class="field"><label>料金（円）</label><input type="number" id="bk-visit-price" oninput="bkVisitCalc()"></div>
+            <div class="field"><label>割引（円）</label><input type="number" id="bk-visit-discount" value="0" oninput="bkVisitCalc()"></div>
+          </div>
+          <div class="grid-cols-2">
+            <div class="field"><label>来店日</label><input type="date" id="bk-visit-date"></div>
+            <div class="field"><label>支払い方法</label>
+              <select id="bk-visit-method">
+                <option value="未入金">未入金（あとで入金登録）</option>
+                <option value="現金">現金</option>
+                <option value="クレジットカード">クレジットカード</option>
+                <option value="銀行振込">銀行振込</option>
+                <option value="電子マネー">電子マネー</option>
+                <option value="回数券消化">回数券消化</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>場所</label><input type="text" id="bk-visit-location" placeholder="例）東京"></div>
+          <div style="font-size:20px; font-weight:bold; margin:8px 0 12px;">合計 <span id="bk-visit-total">¥0</span></div>
+          <button class="btn primary" style="width:100%; padding:12px;" onclick="saveBookingVisit()">来店済みにして売上登録</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 手動予約モーダル -->
+    <div id="bk-manual-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>予約を追加</h2>
+          <button class="btn small" onclick="closeModal('bk-manual-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>お客様</label><select id="bk-man-cust" onchange="document.getElementById('bk-man-newname-wrap').style.display=this.value?'none':''"></select></div>
+          <div class="field" id="bk-man-newname-wrap"><label>新規のお客様名</label><input type="text" id="bk-man-newname" placeholder="例）山田 太郎"></div>
+          <div class="grid-cols-2">
+            <div class="field"><label>日付</label><input type="date" id="bk-man-date"></div>
+            <div class="field"><label>開始時刻</label><input type="time" id="bk-man-time" value="10:00"></div>
+          </div>
+          <div class="field"><label>コース</label><select id="bk-man-menu"></select></div>
+          <div class="field"><label>メモ</label><input type="text" id="bk-man-note" placeholder="電話予約など"></div>
+          <button class="btn primary" style="width:100%; padding:12px;" onclick="saveManualBooking()">追加する</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 6. 分析 -->
     <section id="view-analysis" class="view">
       <div class="flex justify-between items-center" style="margin-bottom: 24px;">
@@ -849,6 +930,8 @@
     </section>
   </main>
 
+<!-- 公式LINE予約の同期ファイル（この端末のみ。GitHubには上げない） -->
+<script src="line-bookings.js" onerror="void 0"></script>
 <script>
 /* ==================== パスワードロック ==================== */
 function checkLogin() {
@@ -1277,6 +1360,7 @@ function showView(name){
     renderFunds();
   }
   if(name === 'follow') renderFollow();
+  if(name === 'bookings') renderBookings();
 }
 
 function openModal(id){ document.getElementById(id).classList.add('active'); }
@@ -1489,7 +1573,7 @@ function renderDashboard() {
   const unpaidTaxes = getUnpaidTaxes();
   const avail = getAvailableFunds();
 
-  document.getElementById('dash-content').innerHTML = `
+  document.getElementById('dash-content').innerHTML = legacyBannerHtml() + dashBookingsHtml() + `
     <div class="grid-cols-2" style="margin-bottom: 20px;">
       <div class="panel" style="margin-bottom:0;">
         <div class="panel-head"><h2>今月 (${tMonth})</h2></div>
@@ -2224,6 +2308,542 @@ function saveClearCard() {
   renderDashboard();
   alert(chks.length + "件の決済を消込しました。手数料は入金額から引かれます。");
 }
+/* ==================== 予約管理（公式LINE連携） ==================== */
+const LINE_NEW_COURSE_ID = 31473; // Lメッセージ「ご新規予約はこちら」
+let bkTab = 'upcoming';
+
+function hEsc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function digits(s){ return String(s||'').replace(/\D/g,''); }
+function normName(s){ return String(s||'').replace(/[\s　]/g,''); }
+function bkDayLabel(d){ if(!d) return '–'; const x=new Date(d+'T00:00'); return `${x.getMonth()+1}/${x.getDate()}(${'日月火水木金土'[x.getDay()]})`; }
+function menuLabel(m){ return m ? `${m.name}（${m.time}）` : '未確定'; }
+
+/* 既存データはそのまま。予約用の配列と、HPにあるのに未登録のストレッチメニューだけ追加 */
+function ensureBookingSchema(){
+  let changed = false;
+  if(!Array.isArray(db.bookings)){ db.bookings = []; changed = true; }
+  const ms = db.settings && db.settings.menus;
+  if(Array.isArray(ms) && !ms.some(m => (m.name||'').includes('ストレッチ'))){
+    ms.push({ id:'m_stretch30', name:'パーソナルストレッチ', time:'30分', price:5500, category:'整体' });
+    ms.push({ id:'m_stretch60', name:'パーソナルストレッチ', time:'60分', price:9900, category:'整体' });
+    changed = true;
+  }
+  if(changed) saveDb();
+}
+
+/* ---- 希望コース（自由記述）→ メニュー・料金の判定 ---- */
+function findMenuBy(nameKey, timeKey){
+  return (db.settings.menus||[]).find(m => (m.name||'').includes(nameKey) && (!timeKey || (m.time||'').includes(timeKey))) || null;
+}
+function matchMenu(text, isNew){
+  const t = String(text||'').replace(/[\s　]/g,'');
+  const vague = /クーポン|割引|相談|おまかせで|未定|わから/.test(t); // 料金が決まらない書き方
+  if(isNew){
+    // 新規は原則TOTAL BODY CHECK。ただし別コース名が書かれていたら要確認
+    const m = findMenuBy('TOTAL BODY CHECK');
+    const other = t ? matchMenu(t, false).menu : null;
+    return { menu:m, sure: !!m && !vague && (!other || other === m) };
+  }
+  if(vague) { const r = matchMenuCore(t); return { menu:r.menu, sure:false }; }
+  return matchMenuCore(t);
+}
+function matchMenuCore(t){
+  const has30 = /30/.test(t), has60 = /60/.test(t), has90 = /90/.test(t);
+  const rules = [
+    [/同業/,                                   () => findMenuBy('同業者')],
+    [/ストレッチ/,                             () => has30 ? findMenuBy('ストレッチ','30') : findMenuBy('ストレッチ','60'), () => has30 || has60],
+    [/オーダーメイド|零式|おまかせ/,           () => has90 ? findMenuBy('全身トータル') : findMenuBy('零式'), () => has60 || has90],
+    [/全身トータル|トータルコンディショニング/, () => findMenuBy('全身トータル')],
+    [/疲労|回復/,                              () => findMenuBy('疲労回復')],
+    [/姿勢/,                                   () => findMenuBy('姿勢改善')],
+    [/美脚|ボディメイク|美尻|脚トレ|ダイエット/, () => findMenuBy('美脚')],
+    [/パフォーマンス|スポーツ|競技/,           () => findMenuBy('パフォーマンス')],
+    [/全身整体|関節調整|全身調整|整体/,         () => findMenuBy('全身調整') || findMenuBy('全身整体')],
+    [/ヘッド/,                                 () => findMenuBy('ヘッド')],
+    [/フット/,                                 () => findMenuBy('フット')],
+    [/ハンド/,                                 () => findMenuBy('ハンド')],
+    [/トータルボディ|TOTALBODY|初回|体験/i,     () => findMenuBy('TOTAL BODY CHECK')],
+  ];
+  const hits = rules.filter(r => r[0].test(t));
+  if(hits.length === 0) return { menu:null, sure:false };
+  const m = hits[0][1]();
+  return { menu:m, sure: !!m && hits.length === 1 && (!hits[0][2] || hits[0][2]()) };
+}
+
+/* ---- 予約ステータス ---- */
+function effectiveStatus(b){
+  if(b.visitStatus && b.visitStatus !== '予約') return b.visitStatus;
+  if(b.lineStatus === 'cancelled') return 'キャンセル';
+  if(b.lineStatus === 'denied') return '否認';
+  if(b.source === 'LINE' && b.lineStatus && b.lineStatus !== 'approved') return '承認待ち';
+  return '予約';
+}
+function isActiveBooking(b){ return ['予約','承認待ち'].includes(effectiveStatus(b)); }
+function statusBadge(s){
+  const cls = { '予約':'gold', '承認待ち':'red', '来店済み':'green', 'キャンセル':'gray', '無断キャンセル':'red', '否認':'gray' }[s] || 'gray';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+function bkSort(a,b){ return (a.date+a.start).localeCompare(b.date+b.start); }
+
+/* ---- LINE予約データの取り込み（既存の予約・顧客情報は上書きしない） ---- */
+function lineAns(raw, key){
+  const a = raw.answers || {};
+  const k = Object.keys(a).find(q => q.includes(key));
+  return k ? String(a[k]||'').trim() : '';
+}
+function parseLineName(raw){
+  const full = lineAns(raw,'お名前'), fk = lineAns(raw,'ふりがな');
+  const m = fk.match(/^(.+?)[（(](.+?)[）)]$/);
+  if(m) return { name:m[1].trim(), kana:m[2].trim() };
+  if(full) return { name:full, kana:fk };
+  const hira = /^[ぁ-んー\s　]+$/.test(fk);
+  if(fk) return { name: hira ? (raw.userName||fk) : fk, kana: hira ? fk : '' };
+  return { name: raw.userName || 'LINE予約のお客様', kana:'' };
+}
+function findCustomerForRaw(raw){
+  if(raw.friendId){ const c = db.customers.find(c => c.lineFriendId === raw.friendId); if(c) return c; }
+  const tel = digits(lineAns(raw,'電話'));
+  if(tel.length >= 10){ const c = db.customers.find(c => digits(c.tel) === tel); if(c) return c; }
+  const nm = normName(parseLineName(raw).name);
+  return db.customers.find(c => normName(c.name) === nm) || null;
+}
+function fillCustomerBlanks(c, raw){
+  const p = parseLineName(raw);
+  const fill = (k,v) => { if(v && !c[k]) c[k] = v; };
+  fill('kana', p.kana); fill('tel', lineAns(raw,'電話')); fill('email', lineAns(raw,'メール'));
+  fill('birthday', lineAns(raw,'生年月日')); fill('gender', lineAns(raw,'性別'));
+  fill('lineFriendId', raw.friendId); fill('lineName', raw.userName);
+}
+function createCustomerFromRaw(raw){
+  const p = parseLineName(raw);
+  const c = {
+    id:'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    createdAt:(raw.createdAt||'').slice(0,10) || iso(),
+    name:p.name, kana:p.kana, tel:'', status:'', plan:'', nextVisit:'', complaint:'', note:'',
+    followStatus:'', followDate:'', source:'LINE予約'
+  };
+  db.customers.push(c);
+  return c;
+}
+function mergeLineBookings(list){
+  let added = 0, updated = 0, custAdded = 0;
+  [...(list||[])].sort((a,b) => String(a.createdAt).localeCompare(String(b.createdAt))).forEach(raw => {
+    if(!raw || !raw.id) return;
+    const mt = String(raw.dateBooking||'').match(/(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})(?:\s*~\s*(\d{1,2}:\d{2}))?/);
+    if(!mt) return;
+    const exist = db.bookings.find(x => x.lineBookingId === raw.id);
+    if(exist){
+      // LINE側の状態・日時だけ反映。コース・料金・来店状況など手で直した内容は保持
+      if(exist.lineStatus !== raw.status || exist.date !== mt[1] || exist.start !== mt[2]){
+        exist.lineStatus = raw.status; exist.date = mt[1]; exist.start = mt[2]; exist.end = mt[3]||'';
+        exist.updatedAt = new Date().toISOString(); updated++;
+      }
+      return;
+    }
+    const inactive = raw.status === 'cancelled' || raw.status === 'denied';
+    const isNew = Number(raw.courseId) === LINE_NEW_COURSE_ID;
+    const req = lineAns(raw,'希望のコース');
+    const mres = matchMenu(req, isNew);
+    let cust = findCustomerForRaw(raw);
+    if(!cust && !inactive){ cust = createCustomerFromRaw(raw); custAdded++; }
+    if(cust) fillCustomerBlanks(cust, raw);
+    db.bookings.push({
+      id:'bk_line_' + raw.id, source:'LINE', lineBookingId:raw.id, lineFriendId:raw.friendId||'', lineName:raw.userName||'',
+      date:mt[1], start:mt[2], end:mt[3]||'', lineCourse:raw.courseName||'', isNewCourse:isNew,
+      requestText:req, remark:lineAns(raw,'備考'), lineStatus:raw.status||'',
+      customerId: cust ? cust.id : '', menuId: mres.menu ? mres.menu.id : '',
+      price: mres.menu ? Number(mres.menu.price)||0 : 0, priceConfirmed: mres.sure,
+      visitStatus:'予約', transactionId:'', createdAt:(raw.createdAt||'').slice(0,10),
+      updatedAt:new Date().toISOString()
+    });
+    added++;
+  });
+  if(refreshNextVisits() || added || updated || custAdded) saveDb();
+  return { added, updated, custAdded };
+}
+/* 今後の予約があれば顧客の「次回来店予定」に反映（手入力の予定より早い場合のみ） */
+function refreshNextVisits(){
+  const today = iso(); let changed = false;
+  db.customers.forEach(c => {
+    const next = db.bookings.filter(b => b.customerId === c.id && b.date >= today && isActiveBooking(b)).sort(bkSort)[0];
+    if(next && (!c.nextVisit || c.nextVisit < today || next.date < c.nextVisit)){ c.nextVisit = next.date; changed = true; }
+  });
+  return changed;
+}
+function syncFromLineFile(){
+  const s = window.LINE_BOOKINGS_SYNC;
+  if(!s || !Array.isArray(s.bookings)) return;
+  const r = mergeLineBookings(s.bookings);
+  db.settings.lineSyncedAt = s.syncedAt || '';
+  saveDb();
+  if(r.added || r.custAdded) setTimeout(() => alert(`公式LINEの予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`), 300);
+}
+function importLineBookingsFile(){
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.js,.json,application/json,text/javascript';
+  input.onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ev => {
+      try {
+        const txt = String(ev.target.result);
+        const data = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+        const r = mergeLineBookings(data.bookings || []);
+        db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
+        saveDb(); renderBookings();
+        alert(`取り込み完了\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`);
+      } catch(err){ alert('ファイルの形式が正しくありません'); }
+    };
+    rd.readAsText(f);
+  };
+  input.click();
+}
+
+/* ---- 予約一覧 ---- */
+function renderBookings(){
+  const today = iso();
+  const all = db.bookings || [];
+  const needs = b => isActiveBooking(b) && (!b.priceConfirmed || !b.menuId || b.date < today);
+  const tabs = [
+    ['upcoming','今後の予約', b => b.date >= today && isActiveBooking(b)],
+    ['today','本日', b => b.date === today],
+    ['needs','要対応', needs],
+    ['past','過去', b => b.date < today],
+    ['all','すべて', () => true],
+  ];
+  document.getElementById('bk-tabs').innerHTML = tabs.map(([k,label,f]) =>
+    `<button class="btn small ${bkTab===k?'primary':''}" onclick="bkTab='${k}'; renderBookings()">${label} (${all.filter(f).length})</button>`).join('');
+  document.getElementById('bk-sync-info').textContent = db.settings.lineSyncedAt
+    ? `公式LINE 最終同期: ${db.settings.lineSyncedAt.replace('T',' ').slice(0,16)}` : '公式LINEとはまだ同期していません';
+
+  const q = (document.getElementById('bk-search').value||'').trim();
+  const filt = tabs.find(t => t[0]===bkTab)[2];
+  let list = all.filter(filt).filter(b => {
+    if(!q) return true;
+    const c = db.customers.find(x => x.id === b.customerId);
+    return [(c&&c.name),(c&&c.kana),b.lineName,b.requestText,(findMenuById(b.menuId)||{}).name].join(' ').includes(q);
+  }).sort(bkSort);
+  if(bkTab === 'past' || bkTab === 'all') list.reverse();
+
+  const el = document.getElementById('bk-list');
+  if(list.length === 0){ el.innerHTML = '<div class="text-sub" style="text-align:center; padding:30px 0;">該当する予約はありません</div>'; return; }
+
+  const menuOpts = sel => '<option value="">未確定</option>' + (db.settings.menus||[]).map(m =>
+    `<option value="${m.id}" ${m.id===sel?'selected':''}>${hEsc(menuLabel(m))} ${yen(m.price)}</option>`).join('');
+
+  el.innerHTML = list.map(b => {
+    const c = db.customers.find(x => x.id === b.customerId);
+    const st = effectiveStatus(b);
+    const dup = isActiveBooking(b) && all.some(o => o !== b && o.customerId && o.customerId === b.customerId && o.date === b.date && isActiveBooking(o));
+    const editable = st === '予約' || st === '承認待ち';
+    return `
+    <div style="border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px; ${b.date===today&&editable?'border-left:4px solid var(--primary);':''}">
+      <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div style="font-weight:bold; font-size:15px;">${bkDayLabel(b.date)} ${hEsc(b.start)}${b.end?'–'+hEsc(b.end):''}</div>
+        <div class="flex gap-3" style="flex-wrap:wrap;">
+          ${statusBadge(st)}
+          <span class="badge ${b.isNewCourse?'gold':'gray'}">${b.isNewCourse?'新規':'リピート'}</span>
+          <span class="badge gray">${b.source==='LINE'?'LINE':'手動'}</span>
+          ${dup?'<span class="badge red">同日に重複予約</span>':''}
+        </div>
+      </div>
+      <div style="margin-bottom:6px;">
+        ${c ? `<a style="font-weight:bold; cursor:pointer; text-decoration:underline;" onclick="editCustomer('${c.id}')">${hEsc(c.name)} 様</a>` : `<b>${hEsc(b.lineName||'顧客未登録')}</b>`}
+        ${b.lineName && c && b.lineName!==c.name ? `<span class="text-sub">（LINE名: ${hEsc(b.lineName)}）</span>`:''}
+        ${c && c.tel ? `<span class="text-sub"> / ${hEsc(c.tel)}</span>`:''}
+      </div>
+      ${b.requestText ? `<div class="text-sub" style="margin-bottom:6px;">希望コース：<b style="color:var(--text);">${hEsc(b.requestText)}</b></div>`:''}
+      ${b.remark ? `<div class="text-sub" style="margin-bottom:6px; white-space:pre-wrap;">備考：${hEsc(b.remark)}</div>`:''}
+      <div class="grid-cols-2" style="align-items:end;">
+        <div class="field" style="margin:0;"><label>コース ${!b.priceConfirmed&&editable?'<span style="color:var(--danger);">※要確認</span>':''}</label>
+          <select ${editable?'':'disabled'} onchange="setBookingMenu('${b.id}', this.value)">${menuOpts(b.menuId)}</select></div>
+        <div class="field" style="margin:0;"><label>料金（円）</label>
+          <input type="number" value="${b.price||0}" ${editable?'':'disabled'} onchange="setBookingPrice('${b.id}', this.value)"></div>
+      </div>
+      <div class="flex gap-3" style="flex-wrap:wrap; margin-top:12px;">
+        ${editable ? `
+          <button class="btn small primary" onclick="openBookingVisit('${b.id}')">✓ 来店済み・売上登録</button>
+          <button class="btn small" onclick="setBookingStatus('${b.id}','キャンセル')">キャンセル</button>
+          <button class="btn small danger" onclick="setBookingStatus('${b.id}','無断キャンセル')">無断キャンセル</button>`
+        : st === '来店済み' ? `<span class="text-sub">売上登録済み（取引履歴で確認できます）</span>`
+        : `<button class="btn small" onclick="setBookingStatus('${b.id}','予約')">予約に戻す</button>`}
+        ${b.source!=='LINE' && st!=='来店済み' ? `<button class="btn small danger" onclick="deleteBooking('${b.id}')">削除</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function findMenuById(id){ return (db.settings.menus||[]).find(m => m.id === id) || null; }
+function findBooking(id){ return (db.bookings||[]).find(b => b.id === id); }
+function setBookingMenu(id, menuId){
+  const b = findBooking(id); if(!b) return;
+  const m = findMenuById(menuId);
+  b.menuId = menuId; b.price = m ? Number(m.price)||0 : 0; b.priceConfirmed = !!m;
+  saveDb(); renderBookings();
+}
+function setBookingPrice(id, v){
+  const b = findBooking(id); if(!b) return;
+  b.price = Number(v)||0; b.priceConfirmed = true; saveDb(); renderBookings();
+}
+function setBookingStatus(id, s){
+  const b = findBooking(id); if(!b) return;
+  if(s !== '予約' && !confirm(`この予約を「${s}」にしますか？`)) return;
+  b.visitStatus = s; b.updatedAt = new Date().toISOString();
+  saveDb(); renderBookings();
+}
+function deleteBooking(id){
+  if(!confirm('この予約を削除しますか？')) return;
+  db.bookings = db.bookings.filter(b => b.id !== id); saveDb(); renderBookings();
+}
+
+/* ---- 来店処理 → 既存の取引・入金データとして売上登録 ---- */
+function openBookingVisit(id){
+  const b = findBooking(id); if(!b) return;
+  const c = db.customers.find(x => x.id === b.customerId);
+  document.getElementById('bk-visit-id').value = id;
+  document.getElementById('bk-visit-title').textContent = `来店処理：${c ? c.name : (b.lineName||'')} 様`;
+  document.getElementById('bk-visit-request').textContent = b.requestText ? `希望コース：${b.requestText}` : '';
+  document.getElementById('bk-visit-menu').innerHTML = '<option value="">コースを選択</option>' + (db.settings.menus||[]).map(m =>
+    `<option value="${m.id}" ${m.id===b.menuId?'selected':''}>${hEsc(menuLabel(m))} ${yen(m.price)}</option>`).join('');
+  document.getElementById('bk-visit-price').value = b.price || 0;
+  document.getElementById('bk-visit-discount').value = 0;
+  document.getElementById('bk-visit-date').value = b.date || iso();
+  document.getElementById('bk-visit-method').value = '未入金';
+  document.getElementById('bk-visit-location').value = '';
+  bkVisitCalc();
+  openModal('bk-visit-modal');
+}
+function bkVisitMenuChanged(){
+  const m = findMenuById(document.getElementById('bk-visit-menu').value);
+  if(m) document.getElementById('bk-visit-price').value = m.price;
+  bkVisitCalc();
+}
+function bkVisitCalc(){
+  const t = Math.max(0, (Number(document.getElementById('bk-visit-price').value)||0) - (Number(document.getElementById('bk-visit-discount').value)||0));
+  document.getElementById('bk-visit-total').textContent = yen(t);
+  return t;
+}
+function saveBookingVisit(){
+  const b = findBooking(document.getElementById('bk-visit-id').value); if(!b) return;
+  if(b.transactionId){ alert('この予約はすでに売上登録済みです'); return; }
+  const m = findMenuById(document.getElementById('bk-visit-menu').value);
+  if(!m){ alert('実施コースを選択してください'); return; }
+  const date = document.getElementById('bk-visit-date').value;
+  if(!date){ alert('来店日を入力してください'); return; }
+  const price = Number(document.getElementById('bk-visit-price').value)||0;
+  const discount = Number(document.getElementById('bk-visit-discount').value)||0;
+  const total = bkVisitCalc();
+  const method = document.getElementById('bk-visit-method').value;
+
+  const tid = 't_' + Date.now();
+  db.transactions.push({
+    id:tid, date, serviceDate:date, customerId:b.customerId||'', totalAmount:total, discount,
+    items:[{ menuName:m.name + (m.time?`（${m.time}）`:''), price, quantity:1 }],
+    location:document.getElementById('bk-visit-location').value, note:(b.source==='LINE'?'公式LINE予約':'予約') , bookingId:b.id
+  });
+  if(method !== '未入金' && total > 0){
+    db.payments.push({
+      id:'p_' + Date.now(), transactionId:tid, date, amount:total, method,
+      status:(method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み',
+      type:'入金', fee:0, accountId:(method === '現金' ? 'acc_cash' : 'acc_bank1')
+    });
+  }
+  b.menuId = m.id; b.price = price; b.priceConfirmed = true;
+  b.visitStatus = '来店済み'; b.transactionId = tid; b.updatedAt = new Date().toISOString();
+  const c = db.customers.find(x => x.id === b.customerId);
+  if(c && c.nextVisit === b.date) c.nextVisit = '';
+  refreshNextVisits();
+  saveDb();
+  closeModal('bk-visit-modal');
+  renderBookings();
+  alert(method === '未入金' ? '売上を登録しました（未入金）。入金は取引履歴から登録できます。' : '売上と入金を登録しました。');
+}
+
+/* ---- 手動予約 ---- */
+function openManualBooking(){
+  document.getElementById('bk-man-cust').innerHTML = '<option value="">＋ 新規のお客様</option>' +
+    db.customers.slice().sort((a,b) => (a.kana||a.name).localeCompare(b.kana||b.name, 'ja')).map(c => `<option value="${c.id}">${hEsc(c.name)} 様</option>`).join('');
+  document.getElementById('bk-man-newname-wrap').style.display = '';
+  document.getElementById('bk-man-newname').value = '';
+  document.getElementById('bk-man-date').value = iso();
+  document.getElementById('bk-man-note').value = '';
+  document.getElementById('bk-man-menu').innerHTML = (db.settings.menus||[]).map(m => `<option value="${m.id}">${hEsc(menuLabel(m))} ${yen(m.price)}</option>`).join('');
+  openModal('bk-manual-modal');
+}
+function saveManualBooking(){
+  let cid = document.getElementById('bk-man-cust').value;
+  const date = document.getElementById('bk-man-date').value;
+  if(!date){ alert('日付を入力してください'); return; }
+  if(!cid){
+    const name = document.getElementById('bk-man-newname').value.trim();
+    if(!name){ alert('お客様を選択するか、新規のお客様名を入力してください'); return; }
+    const c = { id:'c_' + Date.now(), createdAt:iso(), name, kana:'', tel:'', status:'', plan:'', nextVisit:'', complaint:'', note:'', followStatus:'', followDate:'' };
+    db.customers.push(c); cid = c.id;
+  }
+  const m = findMenuById(document.getElementById('bk-man-menu').value);
+  const isFirst = !db.transactions.some(t => t.customerId === cid) && !db.bookings.some(b => b.customerId === cid);
+  db.bookings.push({
+    id:'bk_' + Date.now(), source:'手動', lineBookingId:null, lineFriendId:'', lineName:'',
+    date, start:document.getElementById('bk-man-time').value || '', end:'', lineCourse:'', isNewCourse:isFirst,
+    requestText:'', remark:document.getElementById('bk-man-note').value.trim(), lineStatus:'',
+    customerId:cid, menuId:m?m.id:'', price:m?Number(m.price)||0:0, priceConfirmed:!!m,
+    visitStatus:'予約', transactionId:'', createdAt:iso(), updatedAt:new Date().toISOString()
+  });
+  refreshNextVisits();
+  saveDb();
+  closeModal('bk-manual-modal');
+  bkTab = 'upcoming';
+  renderBookings();
+}
+
+/* ==================== 旧バージョンのデータ復元（追加のみ・上書きしない） ==================== */
+function convertLegacyV1(v1c){
+  const out = { customers:[], transactions:[], payments:[], tickets:[], kartes:[], tasks:[] };
+  (v1c||[]).forEach(c => {
+    out.customers.push({
+      id:c.id, name:c.name||'', kana:c.kana||'', tel:c.tel||'', status:c.status||'', complaint:c.complaint||'', note:c.note||'',
+      plan:c.plan||'', monthlyFee:c.monthlyFee||0, monthlyStart:c.monthlyStart||'', cancelDate:c.cancelDate||'',
+      paymentStatus:c.paymentStatus||'', nextVisit:c.nextVisit||'', createdAt:c.createdAt||'',
+      followStatus:(c.follow&&c.follow.status)||'', followDate:(c.follow&&c.follow.date)||''
+    });
+    if(c.plan === '回数券' && (Number(c.ticketPurchased) > 0 || Number(c.tickets) > 0)){
+      out.tickets.push({ id:'tk_'+c.id, customerId:c.id, purchasedDate:c.createdAt||'', totalCount:Number(c.ticketPurchased)||0,
+        usedCount:Math.max(0,(Number(c.ticketPurchased)||0)-(Number(c.tickets)||0)), expireDate:c.ticketExpiry||'' });
+    }
+    (c.records||[]).forEach(r => {
+      const tid = r.id || ('t_legacy_'+c.id+'_'+(r.date||''));
+      const amount = Number(r.amount)||0;
+      out.transactions.push({ id:tid, date:r.date||'', serviceDate:r.date||'', customerId:c.id, totalAmount:amount, discount:0,
+        items:[{ menuName:(r.type||'記録') + (r.category?` (${r.category})`:''), price:amount, quantity:1 }], location:'旧データ', note:r.body||'' });
+      if(amount > 0) out.payments.push({ id:'p_'+tid, transactionId:tid, date:r.date||'', amount, method:'不明', type:'入金', status:'入金済み', fee:0, accountId:'acc_bank1' });
+    });
+    (c.karte||[]).forEach(k => out.kartes.push({ ...k, id:k.id||('k_legacy_'+c.id+'_'+(k.date||'')), customerId:c.id }));
+    (c.tasks||[]).forEach(t => out.tasks.push({ id:t.id||('tsk_legacy_'+c.id+'_'+t.text), customerId:c.id, text:t.text||'', done:!!t.done }));
+  });
+  return out;
+}
+function readLegacySources(){
+  const srcs = [];
+  const tryParse = k => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } };
+  [['v4',KEY_V4],['v3',KEY_V3],['v2',KEY_V2]].forEach(([label,key]) => {
+    const d = tryParse(key); if(!d || typeof d !== 'object') return;
+    srcs.push({ label, data:{
+      customers:d.customers||[], transactions:(d.transactions||[]).map(t => ({ isCancelled:false, ...t })),
+      payments:(d.payments||[]).map(p => ({ type:'入金', ...p, accountId:p.accountId || (p.method==='現金'?'acc_cash':'acc_bank1') })),
+      expenses:(d.expenses||[]).map(e => ({ status:'支払済み', paidDate:e.date, ...e, accountId:e.accountId || (e.method==='現金'?'acc_cash':'acc_bank1') })),
+      tickets:d.tickets||[], kartes:d.kartes||[], tasks:d.tasks||[], taxPayments:d.taxPayments||[]
+    }});
+  });
+  const v1 = tryParse(KEY_V1);
+  if(Array.isArray(v1)) srcs.push({ label:'v1', data:convertLegacyV1(v1) });
+  return srcs;
+}
+function findMissingLegacy(){
+  const COLS = ['customers','transactions','payments','expenses','tickets','kartes','tasks','taxPayments'];
+  const staged = {}; COLS.forEach(c => staged[c] = []);
+  const idSet = col => new Set([...(db[col]||[]), ...staged[col]].map(x => x && x.id));
+  const custMap = {}; // 旧ID → 既存ID（同じ人が別IDで登録済みの場合）
+  const sameCust = (a,b) => normName(a.name) && normName(a.name) === normName(b.name) && (!digits(a.tel) || !digits(b.tel) || digits(a.tel) === digits(b.tel));
+  const txSig = t => [t.customerId, t.date, Number(t.totalAmount)||0].join('|');
+  readLegacySources().forEach(src => {
+    const d = src.data;
+    (d.customers||[]).forEach(c => {
+      if(!c || !c.id || idSet('customers').has(c.id)) return;
+      const dup = [...db.customers, ...staged.customers].find(x => sameCust(x, c));
+      if(dup){ custMap[c.id] = dup.id; return; }
+      staged.customers.push({ ...c });
+    });
+    const remap = x => (x && x.customerId && custMap[x.customerId]) ? { ...x, customerId:custMap[x.customerId] } : { ...x };
+    const txSigs = new Set([...db.transactions, ...staged.transactions].map(txSig));
+    const skippedTx = new Set();
+    (d.transactions||[]).map(remap).forEach(t => {
+      if(!t.id || idSet('transactions').has(t.id)) return;
+      if(txSigs.has(txSig(t))){ skippedTx.add(t.id); return; } // 同じ日・同じ人・同じ金額は重複とみなす
+      staged.transactions.push(t); txSigs.add(txSig(t));
+    });
+    (d.payments||[]).forEach(p => {
+      if(!p.id || idSet('payments').has(p.id) || skippedTx.has(p.transactionId)) return;
+      staged.payments.push({ ...p });
+    });
+    ['expenses','tickets','taxPayments'].forEach(col => (d[col]||[]).map(remap).forEach(x => { if(x.id && !idSet(col).has(x.id)) staged[col].push(x); }));
+    (d.kartes||[]).map(remap).forEach(k => {
+      if(!k.id || idSet('kartes').has(k.id)) return;
+      if([...db.kartes, ...staged.kartes].some(o => o.customerId===k.customerId && o.date===k.date && (o.shuso||'')===(k.shuso||'') && (o.memo||'')===(k.memo||''))) return;
+      staged.kartes.push(k);
+    });
+    (d.tasks||[]).map(remap).forEach(t => {
+      if(!t.id || idSet('tasks').has(t.id)) return;
+      if([...db.tasks, ...staged.tasks].some(o => o.customerId===t.customerId && o.text===t.text)) return;
+      staged.tasks.push(t);
+    });
+  });
+  const total = COLS.reduce((s,c) => s + staged[c].length, 0);
+  return { staged, total, COLS };
+}
+function legacyBannerHtml(){
+  if(db.settings.legacyRestoreDismissed) return '';
+  const r = findMissingLegacy();
+  if(!r.total) return '';
+  const s = r.staged;
+  return `<div class="panel" style="margin-bottom:20px; border:1px solid var(--primary);">
+    <div class="panel-body">
+      <div style="font-weight:bold; margin-bottom:6px;">🗂 以前のバージョンのデータが見つかりました（まだ反映されていません）</div>
+      <div class="text-sub" style="margin-bottom:10px;">顧客 ${s.customers.length}名 / 売上 ${s.transactions.length}件 / 入金 ${s.payments.length}件 / 経費 ${s.expenses.length}件 / カルテ ${s.kartes.length}件 / 課題 ${s.tasks.length}件 / 回数券 ${s.tickets.length}件
+        ${s.customers.length ? `<br>顧客：${s.customers.slice(0,15).map(c => hEsc(c.name)).join('、')}${s.customers.length>15?' ほか':''}` : ''}</div>
+      <div class="flex gap-3" style="flex-wrap:wrap;">
+        <button class="btn primary small" onclick="applyLegacyRestore()">今のデータに追加して復元する</button>
+        <button class="btn small" onclick="db.settings.legacyRestoreDismissed=true; saveDb(); renderDashboard();">表示しない</button>
+      </div>
+      <div class="text-sub" style="font-size:11px; margin-top:8px;">今のデータは消えません。足りない分だけを追加し、実行前の状態も自動でバックアップします。</div>
+    </div></div>`;
+}
+function applyLegacyRestore(){
+  const r = findMissingLegacy();
+  if(!r.total){ alert('追加が必要な旧データはありません'); return; }
+  if(!confirm(`以前のデータを今のデータに追加します（上書きはしません）。\n顧客 ${r.staged.customers.length}名 / 売上 ${r.staged.transactions.length}件 / カルテ ${r.staged.kartes.length}件 ほか\n\nよろしいですか？`)) return;
+  try { localStorage.setItem('crm-data-v5-before-restore-' + iso(), JSON.stringify(db)); } catch(e){ if(!confirm('復元前のバックアップが保存できませんでした（容量不足）。このまま続けますか？')) return; }
+  r.COLS.forEach(col => { if(!Array.isArray(db[col])) db[col] = []; db[col].push(...r.staged[col]); });
+  refreshNextVisits();
+  saveDb();
+  alert(`復元しました。\n顧客 ${r.staged.customers.length}名 / 売上 ${r.staged.transactions.length}件 / カルテ ${r.staged.kartes.length}件 を追加しました。`);
+  renderDashboard();
+}
+
+/* ---- ダッシュボード用：本日・今後の予約 ---- */
+function dashBookingsHtml(){
+  const today = iso();
+  const bks = db.bookings || [];
+  const todays = bks.filter(b => b.date === today && isActiveBooking(b)).sort(bkSort);
+  const upcoming = bks.filter(b => b.date > today && isActiveBooking(b)).sort(bkSort);
+  const needPrice = bks.filter(b => isActiveBooking(b) && (!b.priceConfirmed || !b.menuId)).length;
+  const unprocessed = bks.filter(b => b.date < today && effectiveStatus(b) === '予約').length;
+  const expected = upcoming.concat(todays).filter(b => b.date.slice(0,7) === today.slice(0,7)).reduce((s,b) => s + (Number(b.price)||0), 0);
+  const row = b => {
+    const c = db.customers.find(x => x.id === b.customerId);
+    const m = findMenuById(b.menuId);
+    return `<div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border); gap:8px; cursor:pointer;" onclick="showView('bookings')">
+      <div><b>${bkDayLabel(b.date)} ${hEsc(b.start)}</b>　${hEsc(c ? c.name : b.lineName)} 様
+        <span class="badge ${b.isNewCourse?'gold':'gray'}" style="margin-left:4px;">${b.isNewCourse?'新規':'リピート'}</span></div>
+      <div class="text-sub" style="text-align:right;">${hEsc(m ? m.name : 'コース未確定')}<br><b style="color:var(--text);">${b.priceConfirmed ? yen(b.price) : '料金要確認'}</b></div>
+    </div>`;
+  };
+  const alerts = [
+    needPrice ? `<span class="badge red" style="cursor:pointer;" onclick="bkTab='needs'; showView('bookings')">コース・料金の確認が必要：${needPrice}件</span>` : '',
+    unprocessed ? `<span class="badge red" style="cursor:pointer;" onclick="bkTab='needs'; showView('bookings')">来店処理が未完了：${unprocessed}件</span>` : ''
+  ].join(' ');
+  return `
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-head"><h2>📅 予約（本日 ${todays.length}件 / 今後 ${upcoming.length}件）</h2>
+        <span class="text-sub">今月の予約売上見込み ${yen(expected)}</span></div>
+      <div class="panel-body">
+        ${alerts ? `<div style="margin-bottom:10px;">${alerts}</div>` : ''}
+        <div class="text-sub" style="margin-bottom:4px;">本日</div>
+        ${todays.length ? todays.map(row).join('') : '<div class="text-sub" style="padding:6px 0;">本日の予約はありません</div>'}
+        <div class="text-sub" style="margin:12px 0 4px;">今後の予約</div>
+        ${upcoming.length ? upcoming.slice(0,5).map(row).join('') : '<div class="text-sub" style="padding:6px 0;">今後の予約はありません</div>'}
+      </div>
+    </div>`;
+}
+
 /* ==================== バックアップ ロジック ==================== */
 function exportData() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
@@ -2268,6 +2888,8 @@ function importData() {
 /* ==================== 起動 ==================== */
 window.onload = () => {
   loadAndMigrate();
+  ensureBookingSchema();
+  syncFromLineFile();
   showView('dashboard');
 };
 </script>
