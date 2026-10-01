@@ -344,7 +344,7 @@
 
           <div class="field">
             <label>支払方法</label>
-            <select id="pay-method">
+            <select id="pay-method" onchange="toggleFeeInput('pay-method', 'pay-fee-field')">
               <option value="現金">現金</option>
               <option value="クレジットカード">クレジットカード</option>
               <option value="銀行振込">銀行振込</option>
@@ -354,6 +354,10 @@
             </select>
           </div>
 
+          <div class="field" id="pay-fee-field" style="display:none;">
+            <label>決済手数料 (%)</label>
+            <input type="number" step="0.01" id="pay-fee-rate" placeholder="例: 3.24">
+          </div>
           <div class="field">
             <label>備考</label>
             <input type="text" id="pay-note" placeholder="メモ">
@@ -483,7 +487,11 @@
           <div class="row" style="font-size:16px; margin-bottom:10px;">未入金残高: <span id="pay-add-unpaid" style="color:var(--danger); font-weight:bold;">¥0</span></div>
           <div class="field"><label>入金日</label><input type="date" id="pay-add-date"></div>
           <div class="field"><label>入金額</label><input type="number" id="pay-add-amount"></div>
-          <div class="field"><label>支払方法</label><select id="pay-add-method"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option><option value="銀行振込">銀行振込</option></select></div>
+          <div class="field"><label>支払方法</label><select id="pay-add-method" onchange="toggleFeeInput('pay-add-method', 'pay-add-fee-field')"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option><option value="銀行振込">銀行振込</option><option value="電子マネー">電子マネー</option><option value="その他">その他</option></select></div>
+          <div class="field" id="pay-add-fee-field" style="display:none;">
+            <label>決済手数料 (%)</label>
+            <input type="number" step="0.01" id="pay-add-fee-rate" placeholder="例: 3.24">
+          </div>
           <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveAdditionalPayment()">入金を登録</button>
         </div>
       </div>
@@ -585,7 +593,7 @@
           <div class="grid-cols-2">
             <div class="field"><label>来店日</label><input type="date" id="bk-visit-date"></div>
             <div class="field"><label>支払い方法</label>
-              <select id="bk-visit-method">
+              <select id="bk-visit-method" onchange="toggleFeeInput('bk-visit-method', 'bk-visit-fee-field')">
                 <option value="未入金">未入金（あとで入金登録）</option>
                 <option value="現金">現金</option>
                 <option value="クレジットカード">クレジットカード</option>
@@ -595,6 +603,10 @@
                 <option value="その他">その他</option>
               </select>
             </div>
+          </div>
+          <div class="field" id="bk-visit-fee-field" style="display:none;">
+            <label>決済手数料 (%)</label>
+            <input type="number" step="0.01" id="bk-visit-fee-rate" placeholder="例: 3.24">
           </div>
           <div class="field"><label>場所</label><input type="text" id="bk-visit-location" placeholder="例）東京"></div>
           <div style="font-size:20px; font-weight:bold; margin:8px 0 12px;">合計 <span id="bk-visit-total">¥0</span></div>
@@ -1483,9 +1495,11 @@ function processTransaction() {
   db.transactions.push(tx);
 
   if(paidAmount > 0) {
+    const feeRate = Number(document.getElementById('pay-fee-rate').value) || 0;
+    const estimatedFee = (method === 'クレジットカード' || method === '電子マネー') ? Math.floor(paidAmount * (feeRate / 100)) : 0;
     db.payments.push({
       id: 'p_' + Date.now(), transactionId: tid, date, amount: paidAmount, method,
-      status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', type: '入金', fee: 0, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
+      status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', type: '入金', fee: estimatedFee, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
     });
   }
 
@@ -1765,9 +1779,11 @@ function saveAdditionalPayment() {
     return;
   }
   
+  const feeRate = Number(document.getElementById('pay-add-fee-rate').value) || 0;
+  const estimatedFee = (method === 'クレジットカード' || method === '電子マネー') ? Math.floor(amount * (feeRate / 100)) : 0;
   db.payments.push({
     id: 'p_' + Date.now(), transactionId: txId, date, amount, method, type: '入金',
-    status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', fee: 0, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
+    status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', fee: estimatedFee, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
   });
   saveDb();
   closeModal('payment-add-modal');
