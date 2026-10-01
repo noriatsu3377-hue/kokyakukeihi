@@ -2356,7 +2356,7 @@ function matchMenu(text, isNew){
   const vague = /クーポン|割引|相談|おまかせで|未定|わから/.test(t); // 料金が決まらない書き方
   if(isNew){
     // 新規は原則TOTAL BODY CHECK。ただし別コース名が書かれていたら要確認
-    const m = findMenuBy('TOTAL BODY CHECK');
+    const m = findMenuBy('TOTAL BODY CHECK') || findMenuBy('初回') || findMenuBy('トータルボディ');
     const other = t ? matchMenu(t, false).menu : null;
     return { menu:m, sure: !!m && !vague && (!other || other === m) };
   }
@@ -2378,7 +2378,7 @@ function matchMenuCore(t){
     [/ヘッド/,                                 () => findMenuBy('ヘッド')],
     [/フット/,                                 () => findMenuBy('フット')],
     [/ハンド/,                                 () => findMenuBy('ハンド')],
-    [/トータルボディ|TOTALBODY|初回|体験/i,     () => findMenuBy('TOTAL BODY CHECK')],
+    [/トータルボディ|TOTALBODY|初回|体験/i,     () => findMenuBy('TOTAL BODY CHECK') || findMenuBy('初回') || findMenuBy('トータルボディ')],
   ];
   const hits = rules.filter(r => r[0].test(t));
   if(hits.length === 0) return { menu:null, sure:false };
