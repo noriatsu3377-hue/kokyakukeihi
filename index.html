@@ -981,10 +981,10 @@ let db = {
     salesGoal: 0,
     menus: [
       { id: 'm1', name: 'TOTAL BODY CHECK／初回限定', time: '75〜90分', price: 10000, category: '整体' },
-      { id: 'm2', name: '完全おまかせ・零式コンディショニング', time: '60分', price: 16500, category: '整体' },
-      { id: 'm3', name: '全身トータルコンディショニング', time: '90分', price: 19800, category: '整体' },
+      { id: 'm2', name: '零式オーダーメイド', time: '60分', price: 16500, category: '整体' },
+      { id: 'm3', name: '零式オーダーメイド', time: '90分', price: 19800, category: '整体' },
       { id: 'm4', name: 'パフォーマンスアップ', time: '60分', price: 13200, category: 'パーソナル' },
-      { id: 'm5', name: '全身調整コンディショニング', time: '60分', price: 13200, category: '整体' },
+      { id: 'm5', name: '全身整体・関節調整', time: '60分', price: 13200, category: '整体' },
       { id: 'm6', name: '姿勢改善コンディショニング', time: '60分', price: 12100, category: '整体' },
       { id: 'm7', name: '美脚・ボディメイク', time: '60分', price: 12100, category: 'パーソナル' },
       { id: 'm8', name: '疲労回復コンディショニング', time: '60分', price: 11000, category: '整体' },
@@ -2344,6 +2344,11 @@ function ensureBookingSchema(){
     ms.push({ id:'m_stretch60', name:'パーソナルストレッチ', time:'60分', price:9900, category:'整体' });
     changed = true;
   }
+  if(Array.isArray(ms) && !db.settings.menusAlignedToFee){
+    const rename = { m2:['完全おまかせ・零式コンディショニング','零式オーダーメイド'], m3:['全身トータルコンディショニング','零式オーダーメイド'], m5:['全身調整コンディショニング','全身整体・関節調整'] };
+    ms.forEach(m => { const r = rename[m.id]; if(r && m.name === r[0]) m.name = r[1]; });
+    db.settings.menusAlignedToFee = true; changed = true;
+  }
   if(changed) saveDb();
 }
 
@@ -2368,13 +2373,13 @@ function matchMenuCore(t){
   const rules = [
     [/同業/,                                   () => findMenuBy('同業者')],
     [/ストレッチ/,                             () => has30 ? findMenuBy('ストレッチ','30') : findMenuBy('ストレッチ','60'), () => has30 || has60],
-    [/オーダーメイド|零式|おまかせ/,           () => has90 ? findMenuBy('全身トータル') : findMenuBy('零式'), () => has60 || has90],
-    [/全身トータル|トータルコンディショニング/, () => findMenuBy('全身トータル')],
+    [/オーダーメイド|零式|おまかせ/,           () => has90 ? (findMenuBy('零式','90') || findMenuBy('全身トータル')) : findMenuBy('零式','60') || findMenuBy('零式'), () => has60 || has90],
+    [/全身トータル|トータルコンディショニング/, () => findMenuBy('零式','90') || findMenuBy('全身トータル')],
     [/疲労|回復/,                              () => findMenuBy('疲労回復')],
     [/姿勢/,                                   () => findMenuBy('姿勢改善')],
     [/美脚|ボディメイク|美尻|脚トレ|ダイエット/, () => findMenuBy('美脚')],
     [/パフォーマンス|スポーツ|競技/,           () => findMenuBy('パフォーマンス')],
-    [/全身整体|関節調整|全身調整|整体/,         () => findMenuBy('全身調整') || findMenuBy('全身整体')],
+    [/全身整体|関節調整|全身調整|整体/,         () => findMenuBy('全身整体') || findMenuBy('全身調整')],
     [/ヘッド/,                                 () => findMenuBy('ヘッド')],
     [/フット/,                                 () => findMenuBy('フット')],
     [/ハンド/,                                 () => findMenuBy('ハンド')],
@@ -2389,7 +2394,7 @@ function matchMenuCore(t){
 /* ---- 予約ステータス ---- */
 function effectiveStatus(b){
   if(b.visitStatus && b.visitStatus !== '予約') return b.visitStatus;
-  if(b.lineStatus === 'cancelled') return 'キャンセル';
+  if(b.lineStatus === 'cancelled' || b.calendarRemoved) return 'キャンセル';
   if(b.lineStatus === 'denied') return '否認';
   if(b.source === 'LINE' && b.lineStatus && b.lineStatus !== 'approved') return '承認待ち';
   return '予約';
@@ -2450,8 +2455,11 @@ function mergeLineBookings(list){
     const exist = db.bookings.find(x => x.lineBookingId === raw.id);
     if(exist){
       // LINE側の状態・日時だけ反映。コース・料金・来店状況など手で直した内容は保持
-      if(exist.lineStatus !== raw.status || exist.date !== mt[1] || exist.start !== mt[2]){
-        exist.lineStatus = raw.status; exist.date = mt[1]; exist.start = mt[2]; exist.end = mt[3]||'';
+      if(raw.lmFriendId && !exist.lineLmFriendId){ exist.lineLmFriendId = raw.lmFriendId; updated++; }
+      const timeLocked = exist.timeSource === 'calendar';
+      if(exist.lineStatus !== raw.status || (!timeLocked && (exist.date !== mt[1] || exist.start !== mt[2]))){
+        exist.lineStatus = raw.status;
+        if(!timeLocked){ exist.date = mt[1]; exist.start = mt[2]; exist.end = mt[3]||''; }
         exist.updatedAt = new Date().toISOString(); updated++;
       }
       return;
@@ -2464,7 +2472,7 @@ function mergeLineBookings(list){
     if(!cust && !inactive){ cust = createCustomerFromRaw(raw); custAdded++; }
     if(cust) fillCustomerBlanks(cust, raw);
     db.bookings.push({
-      id:'bk_line_' + raw.id, source:'LINE', lineBookingId:raw.id, lineFriendId:raw.friendId||'', lineName:raw.userName||'',
+      id:'bk_line_' + raw.id, source:'LINE', lineBookingId:raw.id, lineFriendId:raw.friendId||'', lineLmFriendId:raw.lmFriendId||null, lineName:raw.userName||'',
       date:mt[1], start:mt[2], end:mt[3]||'', lineCourse:raw.courseName||'', isNewCourse:isNew,
       requestText:req, remark:lineAns(raw,'備考'), lineStatus:raw.status||'',
       customerId: cust ? cust.id : '', menuId: mres.menu ? mres.menu.id : '',
@@ -2477,6 +2485,81 @@ function mergeLineBookings(list){
   if(refreshNextVisits() || added || updated || custAdded) saveDb();
   return { added, updated, custAdded };
 }
+function calNameFromSummary(s){
+  return String(s||'').replace(/新規様|リピート様|初回セッション|初回|新規|リピート|施術|セッション|体験|様|さん|[\s　]/g,'').trim();
+}
+function mergeCalendarBookings(list, win){
+  let added = 0, updated = 0, custAdded = 0;
+  const seen = new Set();
+  (list||[]).forEach(ev => {
+    if(!ev || !ev.eventId || !ev.start) return;
+    const date = ev.start.slice(0,10), start = ev.start.slice(11,16), end = (ev.end||'').slice(11,16);
+    if(ev.kind === 'line'){
+      // Lメッセージが自動で作った予定 → 同じLINE予約に紐づけるだけ（新しい予約は作らない）
+      const b = db.bookings.find(x => x.source === 'LINE' && x.calendarEventId === ev.eventId)
+        || db.bookings.find(x => x.source === 'LINE' && !x.calendarEventId && x.lineLmFriendId === ev.lmFriendId && x.date === ev.origDate && x.start === ev.origStart);
+      if(!b) return;
+      if(b.calendarEventId !== ev.eventId){ b.calendarEventId = ev.eventId; updated++; }
+      // カレンダーで日時を動かした場合はカレンダーを正とする
+      if(isActiveBooking(b) && (b.date !== date || b.start !== start)){
+        b.date = date; b.start = start; b.end = end; b.timeSource = 'calendar'; b.updatedAt = new Date().toISOString(); updated++;
+      }
+      return;
+    }
+    seen.add(ev.eventId);
+    const id = 'bk_gcal_' + ev.eventId;
+    const exist = db.bookings.find(x => x.id === id);
+    if(exist){
+      if(exist.calendarRemoved){ exist.calendarRemoved = false; updated++; }
+      if(isActiveBooking(exist) && (exist.date !== date || exist.start !== start || exist.requestText !== ev.summary)){
+        exist.date = date; exist.start = start; exist.end = end; exist.requestText = ev.summary; exist.updatedAt = new Date().toISOString(); updated++;
+      }
+      return;
+    }
+    // 同じ日時にLINE予約・手動予約がすでにあれば二重に作らない
+    if(db.bookings.some(x => x.date === date && x.start === start && x.source !== 'Googleカレンダー' && isActiveBooking(x))) return;
+    const nm = calNameFromSummary(ev.summary);
+    const nn = normName(nm);
+    let cust = nn ? db.customers.find(c => normName(c.name) === nn || (nn.length >= 2 && (normName(c.name).includes(nn) || normName(c.kana).includes(nn)))) : null;
+    if(nn && !cust){
+      cust = { id:'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), createdAt:iso(), name:nm, kana:'', tel:'', status:'', plan:'',
+        nextVisit:'', complaint:'', note:'', followStatus:'', followDate:'', source:'Googleカレンダー' };
+      db.customers.push(cust); custAdded++;
+    }
+    const isNew = /新規|初回|体験/.test(ev.summary||'');
+    const mres = matchMenu(ev.summary, isNew);
+    db.bookings.push({
+      id, source:'Googleカレンダー', calendarEventId:ev.eventId, lineBookingId:null, lineFriendId:'', lineName: nm || ev.summary,
+      date, start, end, lineCourse:'', isNewCourse:isNew, requestText:ev.summary||'', remark:ev.note||'', lineStatus:'',
+      customerId: cust ? cust.id : '', menuId: mres.menu ? mres.menu.id : '', price: mres.menu ? Number(mres.menu.price)||0 : 0,
+      priceConfirmed: mres.sure, visitStatus:'予約', transactionId:'', createdAt:iso(), updatedAt:new Date().toISOString()
+    });
+    added++;
+  });
+  // 取得した期間内でカレンダーから消えた予定はキャンセル扱い（来店済みは触らない）
+  if(win && win.from && win.to){
+    db.bookings.forEach(b => {
+      if(b.source === 'Googleカレンダー' && !seen.has(b.calendarEventId) && b.date >= win.from && b.date <= win.to && !b.calendarRemoved && (b.visitStatus||'予約') === '予約'){
+        b.calendarRemoved = true; updated++;
+      }
+    });
+  }
+  return { added, updated, custAdded };
+}
+/* 同期データ（LINE予約・カレンダー・当日の連絡）をまとめて反映 */
+function applySyncPayload(data){
+  const r = mergeLineBookings(data.bookings || []);
+  const c = mergeCalendarBookings(data.calendar || [], data.calendarWindow);
+  const v = applyVisitInstructions(data.visits || []);
+  db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
+  refreshNextVisits();
+  saveDb();
+  return { added:r.added + c.added, updated:r.updated + c.updated, custAdded:r.custAdded + c.custAdded, visits:v };
+}
+function syncSummaryText(r){
+  return `予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件` + (r.visits ? ` / 売上登録: ${r.visits}件` : '');
+}
+
 /* 今後の予約があれば顧客の「次回来店予定」に反映（手入力の予定より早い場合のみ） */
 function refreshNextVisits(){
   const today = iso(); let changed = false;
@@ -2489,10 +2572,8 @@ function refreshNextVisits(){
 function syncFromLineFile(){
   const s = window.LINE_BOOKINGS_SYNC;
   if(!s || !Array.isArray(s.bookings)) return;
-  const r = mergeLineBookings(s.bookings);
-  db.settings.lineSyncedAt = s.syncedAt || '';
-  saveDb();
-  if(r.added || r.custAdded) setTimeout(() => alert(`公式LINEの予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`), 300);
+  const r = applySyncPayload(s);
+  if(r.added || r.custAdded || r.visits) setTimeout(() => alert(syncSummaryText(r)), 300);
 }
 /* ---- スマホ／GitHub Pages用：合言葉で暗号化された予約データを取り込む ---- */
 const SYNC_PBKDF2_ITER = 200000; // tools/sync_line_bookings.py の ITER と揃える
@@ -2520,12 +2601,10 @@ async function syncFromEncrypted(){
   if(!pass){ encSyncState = 'need-pass'; refreshAfterSync(); return; }
   try {
     const data = await decryptSync(window.LINE_BOOKINGS_ENC, pass);
-    const r = mergeLineBookings(data.bookings || []);
-    db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
-    saveDb();
+    const r = applySyncPayload(data);
     encSyncState = 'ok';
     refreshAfterSync();
-    if(r.added || r.custAdded) alert(`公式LINEの予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`);
+    if(r.added || r.custAdded || r.visits) alert(syncSummaryText(r));
   } catch(e){ encSyncState = 'bad-pass'; refreshAfterSync(); }
 }
 function setSyncPass(){
@@ -2555,10 +2634,9 @@ function importLineBookingsFile(){
       try {
         const txt = String(ev.target.result);
         const data = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
-        const r = mergeLineBookings(data.bookings || []);
-        db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
-        saveDb(); renderBookings();
-        alert(`取り込み完了\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件`);
+        const r = applySyncPayload(data);
+        renderBookings();
+        alert(syncSummaryText(r));
       } catch(err){ alert('ファイルの形式が正しくありません'); }
     };
     rd.readAsText(f);
@@ -2611,7 +2689,8 @@ function renderBookings(){
         <div class="flex gap-3" style="flex-wrap:wrap;">
           ${statusBadge(st)}
           <span class="badge ${b.isNewCourse?'gold':'gray'}">${b.isNewCourse?'新規':'リピート'}</span>
-          <span class="badge gray">${b.source==='LINE'?'LINE':'手動'}</span>
+          <span class="badge gray">${b.source==='LINE'?'LINE':b.source==='Googleカレンダー'?'カレンダー':'手動'}</span>
+          ${b.timeSource==='calendar'?'<span class="badge gray">日時はカレンダーで変更</span>':''}
           ${dup?'<span class="badge red">同日に重複予約</span>':''}
         </div>
       </div>
@@ -2635,7 +2714,7 @@ function renderBookings(){
           <button class="btn small danger" onclick="setBookingStatus('${b.id}','無断キャンセル')">無断キャンセル</button>`
         : st === '来店済み' ? `<span class="text-sub">売上登録済み（取引履歴で確認できます）</span>`
         : `<button class="btn small" onclick="setBookingStatus('${b.id}','予約')">予約に戻す</button>`}
-        ${b.source!=='LINE' && st!=='来店済み' ? `<button class="btn small danger" onclick="deleteBooking('${b.id}')">削除</button>`:''}
+        ${b.source==='手動' && st!=='来店済み' ? `<button class="btn small danger" onclick="deleteBooking('${b.id}')">削除</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -2699,31 +2778,49 @@ function saveBookingVisit(){
   if(!date){ alert('来店日を入力してください'); return; }
   const price = Number(document.getElementById('bk-visit-price').value)||0;
   const discount = Number(document.getElementById('bk-visit-discount').value)||0;
-  const total = bkVisitCalc();
   const method = document.getElementById('bk-visit-method').value;
-
-  const tid = 't_' + Date.now();
-  db.transactions.push({
-    id:tid, date, serviceDate:date, customerId:b.customerId||'', totalAmount:total, discount,
-    items:[{ menuName:m.name + (m.time?`（${m.time}）`:''), price, quantity:1 }],
-    location:document.getElementById('bk-visit-location').value, note:(b.source==='LINE'?'公式LINE予約':'予約') , bookingId:b.id
-  });
-  if(method !== '未入金' && total > 0){
-    db.payments.push({
-      id:'p_' + Date.now(), transactionId:tid, date, amount:total, method,
-      status:(method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み',
-      type:'入金', fee:0, accountId:(method === '現金' ? 'acc_cash' : 'acc_bank1')
-    });
-  }
-  b.menuId = m.id; b.price = price; b.priceConfirmed = true;
-  b.visitStatus = '来店済み'; b.transactionId = tid; b.updatedAt = new Date().toISOString();
-  const c = db.customers.find(x => x.id === b.customerId);
-  if(c && c.nextVisit === b.date) c.nextVisit = '';
-  refreshNextVisits();
+  recordVisit(b, m, price, discount, method, date, document.getElementById('bk-visit-location').value);
   saveDb();
   closeModal('bk-visit-modal');
   renderBookings();
   alert(method === '未入金' ? '売上を登録しました（未入金）。入金は取引履歴から登録できます。' : '売上と入金を登録しました。');
+}
+
+function recordVisit(b, m, price, discount, method, date, location, note){
+  const total = Math.max(0, (Number(price)||0) - (Number(discount)||0));
+  const tid = 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  const srcNote = { 'LINE':'公式LINE予約', 'Googleカレンダー':'Googleカレンダー予約' }[b.source] || '予約';
+  db.transactions.push({
+    id:tid, date, serviceDate:date, customerId:b.customerId||'', totalAmount:total, discount:Number(discount)||0,
+    items:[{ menuName:m.name + (m.time?`（${m.time}）`:''), price:Number(price)||0, quantity:1 }],
+    location:location||'', note: note ? srcNote + '／' + note : srcNote, bookingId:b.id
+  });
+  if(method && method !== '未入金' && total > 0){
+    db.payments.push({
+      id:'p_' + tid, transactionId:tid, date, amount:total, method,
+      status:(method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み',
+      type:'入金', fee:0, accountId:(method === '現金' ? 'acc_cash' : 'acc_bank1')
+    });
+  }
+  b.menuId = m.id; b.price = Number(price)||0; b.priceConfirmed = true;
+  b.visitStatus = '来店済み'; b.transactionId = tid; b.updatedAt = new Date().toISOString();
+  const c = db.customers.find(x => x.id === b.customerId);
+  if(c && c.nextVisit === b.date) c.nextVisit = '';
+  refreshNextVisits();
+}
+
+/* ---- 当日の連絡（メニュー・支払い方法）を同期データから反映。登録済みの予約は二度登録しない ---- */
+function applyVisitInstructions(list){
+  let n = 0;
+  (list||[]).forEach(v => {
+    const b = findBooking(v.bookingId);
+    if(!b || b.transactionId) return;
+    const m = findMenuById(v.menuId) || (db.settings.menus||[]).find(x => x.name === v.menuName && (!v.menuTime || x.time === v.menuTime));
+    if(!m) return;
+    recordVisit(b, m, v.price ?? m.price, v.discount || 0, v.method || '未入金', v.date || b.date, v.location || '', v.note || '');
+    n++;
+  });
+  return n;
 }
 
 /* ---- 手動予約 ---- */

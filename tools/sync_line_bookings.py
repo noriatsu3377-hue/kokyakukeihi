@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """公式LINE（Lメッセージ）の予約データを顧客管理システム用に書き出す。
 
-使い方: python3 tools/sync_line_bookings.py <get_salon_bookings の結果JSON>
+使い方: python3 tools/sync_line_bookings.py <get_salon_bookings の結果JSON> [--calendar <list_events の結果JSON>]
+
+- Googleカレンダーの予定は、お客様の予約らしいものだけを取り込む（Lメッセージが自動で作った予定は、LINE予約との照合用）
+- line-drafts/visits.json があれば「当日の連絡（実施メニュー・支払い方法）」として一緒に渡す
 
 - line-bookings.js      … このMac用（平文。.gitignore 済みでGitHubには上がらない）
 - line-bookings.enc.js  … スマホ／GitHub Pages用（合言葉で暗号化。GitHubに上げる）
@@ -12,9 +15,10 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLAIN = os.path.join(ROOT, "line-bookings.js")
@@ -22,6 +26,11 @@ ENC = os.path.join(ROOT, "line-bookings.enc.js")
 STATE = os.path.join(ROOT, "line-drafts", ".sync_state")
 KEYCHAIN_ITEM = "crm-sync-passphrase"
 ITER = 200000  # index.html の SYNC_PBKDF2_ITER と揃える
+VISITS = os.path.join(ROOT, "line-drafts", "visits.json")
+JST = timezone(timedelta(hours=9))
+# お客様の予約らしい予定（タイトル）と、除外する予定
+BOOKING_RE = re.compile(r"施術|セッション|新規|リピート|体験|様|ストレッチ|整体|パーソナル")
+EXCLUDE_RE = re.compile(r"経絡|セミナー|勉強会|打ち合わせ|打合せ|歯医者|タトゥー|ZERO|零式-|調整法|合宿|講習|研修|zoom|Zoom|Train|会議")
 
 
 def normalize(raw):
@@ -29,6 +38,7 @@ def normalize(raw):
     for b in raw.get("bookings", []):
         out.append({
             "id": b.get("id"),
+            "lmFriendId": b.get("lmessage_friend_id"),
             "courseId": b.get("course_id"),
             "courseName": b.get("course_name", ""),
             "dateBooking": b.get("date_booking", ""),
@@ -39,6 +49,38 @@ def normalize(raw):
             "answers": {a.get("question", ""): a.get("answer", "") for a in b.get("form_answers", []) or []},
             "createdAt": b.get("created_at", ""),
         })
+    return out
+
+
+def local_dt(v):
+    """Googleカレンダーの日時を日本時間の 'YYYY-MM-DDTHH:MM' にそろえる"""
+    if not v:
+        return ""
+    return datetime.fromisoformat(v.replace("Z", "+00:00")).astimezone(JST).strftime("%Y-%m-%dT%H:%M")
+
+
+def normalize_calendar(raw):
+    out = []
+    for e in raw.get("events", []) or []:
+        if e.get("status") == "cancelled" or e.get("eventType") not in (None, "DEFAULT"):
+            continue
+        st = (e.get("start") or {}).get("dateTime")
+        if not st:  # 終日の予定は対象外
+            continue
+        summary = e.get("summary") or ""
+        desc = e.get("description") or ""
+        ev = {"eventId": e.get("id"), "start": local_dt(st), "end": local_dt((e.get("end") or {}).get("dateTime")), "summary": summary}
+        m = re.search(r"friendlist/my_page/(\d+)", desc)
+        if m:  # Lメッセージが自動で作った予定 → LINE予約との照合だけに使う
+            o = re.search(r"予約日時</b><br>(\d{4})年(\d{2})月(\d{2})日\s*(\d{1,2}:\d{2})", desc)
+            ev.update(kind="line", lmFriendId=int(m.group(1)),
+                      origDate=f"{o.group(1)}-{o.group(2)}-{o.group(3)}" if o else "", origStart=o.group(4).zfill(5) if o else "")
+        elif (BOOKING_RE.search(summary) and not EXCLUDE_RE.search(summary)
+              and datetime.fromisoformat(ev["end"] or ev["start"]) - datetime.fromisoformat(ev["start"]) <= timedelta(hours=3)):  # 3時間超はセミナー等とみなす
+            ev.update(kind="manual", note=re.sub(r"<[^>]+>", " ", desc).strip()[:300])
+        else:
+            continue
+        out.append(ev)
     return out
 
 
@@ -69,19 +111,34 @@ def main():
     if not bookings and not raw.get("bookings") == []:
         sys.exit("予約データの形式が正しくありません（中止しました）")
 
-    payload = {"syncedAt": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "salonId": 12279, "bookings": bookings}
+    calendar, window = [], None
+    if "--calendar" in sys.argv:
+        with open(sys.argv[sys.argv.index("--calendar") + 1], encoding="utf-8") as f:
+            craw = json.load(f)
+        calendar = normalize_calendar(craw)
+        window = craw.get("window")  # {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD"}（取得した期間）
+    visits = []
+    if os.path.exists(VISITS):
+        with open(VISITS, encoding="utf-8") as f:
+            visits = json.load(f)
+
+    payload = {"syncedAt": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "salonId": 12279, "bookings": bookings,
+               "calendar": calendar, "calendarWindow": window, "visits": visits}
     body = json.dumps(payload, ensure_ascii=False)
     with open(PLAIN, "w", encoding="utf-8") as f:
         f.write("// 公式LINE（Lメッセージ）予約の同期データ。個人情報を含むためGitHubには上げないこと。\n")
         f.write("window.LINE_BOOKINGS_SYNC = " + body + ";\n")
-    print(f"このMac用に書き出しました: {len(bookings)}件")
+    print(f"このMac用に書き出しました: LINE予約 {len(bookings)}件 / カレンダー {len(calendar)}件 / 当日の連絡 {len(visits)}件")
 
-    digest = hashlib.sha256(json.dumps(bookings, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps([bookings, calendar, window, visits], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     prev = open(STATE).read().strip() if os.path.exists(STATE) else ""
     if digest == prev:
         print("予約内容に変更なし → GitHubへの反映はスキップ")
         return
 
+    if os.environ.get("CRM_SYNC_NO_PUSH"):  # テスト用：GitHubには反映しない
+        print("テストモードのため、GitHubへの反映はスキップ")
+        return
     pw = passphrase()
     if not pw:
         print("合言葉が未登録のため、スマホ用（暗号化）ファイルは作成していません")
