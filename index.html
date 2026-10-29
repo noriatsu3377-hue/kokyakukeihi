@@ -2859,7 +2859,24 @@ function recordVisit(b, m, price, discount, method, date, location, note){
 function applyVisitInstructions(list){
   let n = 0;
   (list||[]).forEach(v => {
-    const b = findBooking(v.bookingId);
+    let b = v.bookingId ? findBooking(v.bookingId) : null;
+    // 予約が登録されていない来店：連絡のIDで予約を1件だけ作ってから売上登録（二重登録しない）
+    if(!b && !v.bookingId && v.id && v.customerName && v.date){
+      b = findBooking('bk_visit_' + v.id);
+      if(!b){
+        const nn = normName(v.customerName);
+        let c = db.customers.find(x => normName(x.name) === nn);
+        if(!c){
+          c = { id:'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), createdAt:v.date, name:v.customerName, kana:'', tel:'', status:'', plan:'',
+            nextVisit:'', complaint:'', note:'', followStatus:'', followDate:'' };
+          db.customers.push(c);
+        }
+        b = { id:'bk_visit_' + v.id, source:'手動', lineBookingId:null, lineFriendId:'', lineName:'', date:v.date, start:v.start || '', end:'',
+          lineCourse:'', isNewCourse:!!v.isNew, requestText:'', remark:'当日の連絡から登録', lineStatus:'', customerId:c.id,
+          menuId:'', price:0, priceConfirmed:false, visitStatus:'予約', transactionId:'', createdAt:v.date, updatedAt:new Date().toISOString() };
+        db.bookings.push(b);
+      }
+    }
     if(!b || b.transactionId) return;
     const m = findMenuById(v.menuId) || (db.settings.menus||[]).find(x => x.name === v.menuName && (!v.menuTime || x.time === v.menuTime));
     if(!m) return;
