@@ -2581,9 +2581,12 @@ function applyCustomerUpdates(list){
       if(u[k] !== undefined && u[k] !== '' && c[k] !== u[k]){ c[k] = u[k]; n++; }
     });
     (u.kartes || []).forEach(k => {
-      if(!k || !k.id || (db.kartes||[]).some(x => x.id === k.id)) return;
+      if(!k || !k.id) return;
       if(!Array.isArray(db.kartes)) db.kartes = [];
-      db.kartes.push({ ...k, customerId:c.id }); n++;
+      const ex = db.kartes.find(x => x.id === k.id);
+      if(!ex){ db.kartes.push({ ...k, customerId:c.id }); n++; return; }
+      // 同じカルテへの追記・訂正（内容が変わった項目だけ）
+      Object.keys(k).forEach(f => { if(f !== 'id' && k[f] !== undefined && ex[f] !== k[f]){ ex[f] = k[f]; n++; } });
     });
   });
   return n;
