@@ -548,6 +548,7 @@
           </div>
           <div class="field"><label>主訴・お悩み</label><textarea id="cust-complaint"></textarea></div>
           <div class="field"><label>備考</label><textarea id="cust-note"></textarea></div>
+          <div id="cust-kartes"></div>
           
           <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveCustomer()">保存する</button>
         </div>
@@ -1650,12 +1651,29 @@ function renderCustomerList() {
   `).join('');
 }
 
+const KARTE_LABELS = [['shuso','主訴'],['mokuteki','目的'],['kiou','既往歴'],['itami','痛みの部位'],['shisei','姿勢評価'],['kadou','可動域'],['kinryoku','筋力評価'],
+  ['seijutsu','施術内容'],['training','トレーニング内容'],['chui','注意事項'],['kinki','禁忌事項'],['houshin','次回の方針'],['memo','スタッフメモ']];
+function renderCustomerKartes(cid){
+  const el = document.getElementById('cust-kartes'); if(!el) return;
+  const c = db.customers.find(x => x.id === cid);
+  const ks = (db.kartes||[]).filter(k => k.customerId === cid).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const prof = c ? [['生年月日',c.birthday],['血液型',c.bloodType],['性別',c.gender],['メール',c.email]].filter(x => x[1]) : [];
+  if(!ks.length && !prof.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="field"><label>カルテ（${ks.length}件）</label>
+    ${prof.length ? `<div class="text-sub" style="margin-bottom:8px;">${prof.map(x => hEsc(x[0]) + '：' + hEsc(x[1])).join('　')}</div>` : ''}
+    ${ks.map(k => `<div style="border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+      <div style="font-weight:bold; margin-bottom:6px;">${hEsc(k.date||'')}</div>
+      ${KARTE_LABELS.filter(([f]) => k[f]).map(([f,l]) => `<div style="margin-bottom:4px; white-space:pre-wrap;"><span class="text-sub">${l}：</span>${hEsc(k[f])}</div>`).join('')}
+    </div>`).join('')}</div>`;
+}
+
 function openCustomerModal() {
   document.getElementById('cust-modal-title').textContent = '新規顧客登録';
   document.getElementById('cust-edit-id').value = '';
   ['name','kana','tel','status','plan','nextvisit','complaint','note'].forEach(id => {
     document.getElementById('cust-'+id).value = '';
   });
+  document.getElementById('cust-kartes').innerHTML = '';
   openModal('customer-modal');
 }
 
@@ -1672,6 +1690,7 @@ function editCustomer(id) {
   document.getElementById('cust-nextvisit').value = c.nextVisit;
   document.getElementById('cust-complaint').value = c.complaint;
   document.getElementById('cust-note').value = c.note;
+  renderCustomerKartes(c.id);
   openModal('customer-modal');
 }
 
@@ -2546,15 +2565,39 @@ function mergeCalendarBookings(list, win){
   }
   return { added, updated, custAdded };
 }
+function applyCustomerUpdates(list){
+  let n = 0;
+  (list||[]).forEach(u => {
+    if(!u || !u.name) return;
+    const nn = normName(u.name);
+    let c = db.customers.find(x => normName(x.name) === nn);
+    if(!c){
+      c = { id:'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), createdAt:iso(), name:u.name, kana:'', tel:'', status:'', plan:'',
+        nextVisit:'', complaint:'', note:'', followStatus:'', followDate:'' };
+      db.customers.push(c); n++;
+    }
+    // 連絡で受け取った項目だけを更新（同じ内容なら何もしない）
+    ['kana','tel','birthday','bloodType','gender','complaint','note'].forEach(k => {
+      if(u[k] !== undefined && u[k] !== '' && c[k] !== u[k]){ c[k] = u[k]; n++; }
+    });
+    (u.kartes || []).forEach(k => {
+      if(!k || !k.id || (db.kartes||[]).some(x => x.id === k.id)) return;
+      if(!Array.isArray(db.kartes)) db.kartes = [];
+      db.kartes.push({ ...k, customerId:c.id }); n++;
+    });
+  });
+  return n;
+}
 /* 同期データ（LINE予約・カレンダー・当日の連絡）をまとめて反映 */
 function applySyncPayload(data){
   const r = mergeLineBookings(data.bookings || []);
   const c = mergeCalendarBookings(data.calendar || [], data.calendarWindow);
   const v = applyVisitInstructions(data.visits || []);
+  const cu = applyCustomerUpdates(data.customerUpdates || []);
   db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
   refreshNextVisits();
   saveDb();
-  return { added:r.added + c.added, updated:r.updated + c.updated, custAdded:r.custAdded + c.custAdded, visits:v };
+  return { added:r.added + c.added, updated:r.updated + c.updated + cu, custAdded:r.custAdded + c.custAdded, visits:v };
 }
 function syncSummaryText(r){
   return `予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件` + (r.visits ? ` / 売上登録: ${r.visits}件` : '');
@@ -2573,7 +2616,7 @@ function syncFromLineFile(){
   const s = window.LINE_BOOKINGS_SYNC;
   if(!s || !Array.isArray(s.bookings)) return;
   const r = applySyncPayload(s);
-  if(r.added || r.custAdded || r.visits) setTimeout(() => alert(syncSummaryText(r)), 300);
+  if(r.added || r.custAdded || r.visits || r.updated) setTimeout(() => alert(syncSummaryText(r)), 300);
 }
 /* ---- スマホ／GitHub Pages用：合言葉で暗号化された予約データを取り込む ---- */
 const SYNC_PBKDF2_ITER = 200000; // tools/sync_line_bookings.py の ITER と揃える
