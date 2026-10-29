@@ -2,6 +2,7 @@
 """公式LINE（Lメッセージ）の予約データを顧客管理システム用に書き出す。
 
 使い方: python3 tools/sync_line_bookings.py <get_salon_bookings の結果JSON> [--calendar <list_events の結果JSON>]
+       python3 tools/sync_line_bookings.py --reuse-last   （前回の取得データで、連絡だけ反映し直す）
 
 - Googleカレンダーの予定は、お客様の予約らしいものだけを取り込む（Lメッセージが自動で作った予定は、LINE予約との照合用）
 - line-drafts/visits.json があれば「当日の連絡（実施メニュー・支払い方法）」として一緒に渡す
@@ -106,13 +107,20 @@ def git(*args):
 def main():
     if len(sys.argv) < 2:
         sys.exit("使い方: sync_line_bookings.py <予約JSONファイル>")
-    with open(sys.argv[1], encoding="utf-8") as f:
-        raw = json.load(f)
-    bookings = normalize(raw)
-    if not bookings and not raw.get("bookings") == []:
-        sys.exit("予約データの形式が正しくありません（中止しました）")
-
     calendar, window = [], None
+    if sys.argv[1] == "--reuse-last":
+        # 前回取得した予約・カレンダーをそのまま使い、当日の連絡・顧客情報の連絡だけ反映し直す
+        with open(PLAIN, encoding="utf-8") as f:
+            s = f.read()
+        last = json.loads(s[s.index("{"):s.rindex("}") + 1])
+        bookings, calendar, window = last.get("bookings", []), last.get("calendar", []), last.get("calendarWindow")
+    else:
+        with open(sys.argv[1], encoding="utf-8") as f:
+            raw = json.load(f)
+        bookings = normalize(raw)
+        if not bookings and not raw.get("bookings") == []:
+            sys.exit("予約データの形式が正しくありません（中止しました）")
+
     if "--calendar" in sys.argv:
         with open(sys.argv[sys.argv.index("--calendar") + 1], encoding="utf-8") as f:
             craw = json.load(f)
