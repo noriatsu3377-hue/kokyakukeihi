@@ -29,6 +29,7 @@ KEYCHAIN_ITEM = "crm-sync-passphrase"
 ITER = 200000  # index.html の SYNC_PBKDF2_ITER と揃える
 VISITS = os.path.join(ROOT, "line-drafts", "visits.json")
 CUSTOMER_UPDATES = os.path.join(ROOT, "line-drafts", "customer-updates.json")  # 顧客情報・カルテの連絡
+CUSTOMER_MERGES = os.path.join(ROOT, "line-drafts", "customer-merges.json")  # 同一人物のまとめ
 JST = timezone(timedelta(hours=9))
 # お客様の予約らしい予定（タイトル）と、除外する予定
 BOOKING_RE = re.compile(r"施術|セッション|新規|リピート|体験|様|ストレッチ|整体|パーソナル")
@@ -135,17 +136,21 @@ def main():
     if os.path.exists(CUSTOMER_UPDATES):
         with open(CUSTOMER_UPDATES, encoding="utf-8") as f:
             customer_updates = json.load(f)
+    customer_merges = []
+    if os.path.exists(CUSTOMER_MERGES):
+        with open(CUSTOMER_MERGES, encoding="utf-8") as f:
+            customer_merges = json.load(f)
 
     payload = {"syncedAt": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "salonId": 12279, "bookings": bookings,
                "calendar": calendar, "calendarWindow": window, "visits": visits,
-               "customerUpdates": customer_updates}
+               "customerUpdates": customer_updates, "customerMerges": customer_merges}
     body = json.dumps(payload, ensure_ascii=False)
     with open(PLAIN, "w", encoding="utf-8") as f:
         f.write("// 公式LINE（Lメッセージ）予約の同期データ。個人情報を含むためGitHubには上げないこと。\n")
         f.write("window.LINE_BOOKINGS_SYNC = " + body + ";\n")
     print(f"このMac用に書き出しました: LINE予約 {len(bookings)}件 / カレンダー {len(calendar)}件 / 当日の連絡 {len(visits)}件 / 顧客情報の連絡 {len(customer_updates)}件")
 
-    digest = hashlib.sha256(json.dumps([bookings, calendar, window, visits, customer_updates], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps([bookings, calendar, window, visits, customer_updates, customer_merges], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     prev = open(STATE).read().strip() if os.path.exists(STATE) else ""
     if digest == prev:
         print("予約内容に変更なし → GitHubへの反映はスキップ")

@@ -2591,12 +2591,27 @@ function applyCustomerUpdates(list){
   });
   return n;
 }
+/* 同じ人が2人に分かれて登録された場合に1人にまとめる（予約・売上・カルテなども移す） */
+function applyCustomerMerges(list){
+  let n = 0;
+  (list||[]).forEach(m => {
+    if(!m || !m.from || !m.to) return;
+    const from = db.customers.find(x => normName(x.name) === normName(m.from));
+    const to = db.customers.find(x => normName(x.name) === normName(m.to));
+    if(!from || !to || from === to) return;
+    ['bookings','transactions','kartes','tasks','tickets'].forEach(col => (db[col]||[]).forEach(r => { if(r.customerId === from.id) r.customerId = to.id; }));
+    Object.keys(from).forEach(k => { if(k !== 'id' && k !== 'name' && from[k] && !to[k]) to[k] = from[k]; });
+    db.customers = db.customers.filter(x => x !== from);
+    n++;
+  });
+  return n;
+}
 /* 同期データ（LINE予約・カレンダー・当日の連絡）をまとめて反映 */
 function applySyncPayload(data){
   const r = mergeLineBookings(data.bookings || []);
   const c = mergeCalendarBookings(data.calendar || [], data.calendarWindow);
   const v = applyVisitInstructions(data.visits || []);
-  const cu = applyCustomerUpdates(data.customerUpdates || []);
+  const cu = applyCustomerUpdates(data.customerUpdates || []) + applyCustomerMerges(data.customerMerges || []);
   db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
   refreshNextVisits();
   saveDb();
