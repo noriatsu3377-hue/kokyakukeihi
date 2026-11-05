@@ -2877,7 +2877,20 @@ function applyVisitInstructions(list){
         db.bookings.push(b);
       }
     }
-    if(!b || b.transactionId) return;
+    if(!b) return;
+    if(b.transactionId){
+      // 「未入金」で登録済みの売上に、あとから支払い方法の連絡が来た場合は入金だけ追加する
+      const tx = db.transactions.find(t => t.id === b.transactionId);
+      if(tx && v.method && v.method !== '未入金' && !db.payments.some(p => p.transactionId === tx.id && p.type !== '返金')){
+        db.payments.push({
+          id:'p_' + tx.id, transactionId:tx.id, date:v.paidDate || tx.date, amount:tx.totalAmount, method:v.method,
+          status:(v.method === 'クレジットカード' || v.method === '電子マネー') ? '決済完了' : '入金済み',
+          type:'入金', fee:0, accountId:(v.method === '現金' ? 'acc_cash' : 'acc_bank1')
+        });
+        n++;
+      }
+      return;
+    }
     const m = findMenuById(v.menuId) || (db.settings.menus||[]).find(x => x.name === v.menuName && (!v.menuTime || x.time === v.menuTime));
     if(!m) return;
     recordVisit(b, m, v.price ?? m.price, v.discount || 0, v.method || '未入金', v.date || b.date, v.location || '', v.note || '');
