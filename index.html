@@ -2505,7 +2505,7 @@ function mergeLineBookings(list){
   return { added, updated, custAdded };
 }
 function calNameFromSummary(s){
-  return String(s||'').replace(/新規様|リピート様|初回セッション|初回|新規|リピート|施術|セッション|体験|様|さん|[\s　]/g,'').trim();
+  return String(s||'').replace(/新規様|リピート様|初回セッション|初回|新規|リピート|施術|セッション|パーソナル|ストレッチ|整体|体験|様|さん|[\s　]/g,'').trim();
 }
 function mergeCalendarBookings(list, win){
   let added = 0, updated = 0, custAdded = 0;
