@@ -31,6 +31,7 @@ VISITS = os.path.join(ROOT, "line-drafts", "visits.json")
 CUSTOMER_UPDATES = os.path.join(ROOT, "line-drafts", "customer-updates.json")  # 顧客情報・カルテの連絡
 CUSTOMER_MERGES = os.path.join(ROOT, "line-drafts", "customer-merges.json")  # 同一人物のまとめ
 BOOKING_FIXES = os.path.join(ROOT, "line-drafts", "booking-fixes.json")  # 予約の訂正
+EXPENSES = os.path.join(ROOT, "line-drafts", "expenses.json")  # レンタルスペース等の経費
 JST = timezone(timedelta(hours=9))
 # お客様の予約らしい予定（タイトル）と、除外する予定
 BOOKING_RE = re.compile(r"施術|セッション|新規|リピート|体験|様|ストレッチ|整体|パーソナル")
@@ -145,18 +146,22 @@ def main():
     if os.path.exists(BOOKING_FIXES):
         with open(BOOKING_FIXES, encoding="utf-8") as f:
             booking_fixes = json.load(f)
+    expenses = []
+    if os.path.exists(EXPENSES):
+        with open(EXPENSES, encoding="utf-8") as f:
+            expenses = json.load(f)
 
     payload = {"syncedAt": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "salonId": 12279, "bookings": bookings,
                "calendar": calendar, "calendarWindow": window, "visits": visits,
                "customerUpdates": customer_updates, "customerMerges": customer_merges,
-               "bookingFixes": booking_fixes}
+               "bookingFixes": booking_fixes, "expenses": expenses}
     body = json.dumps(payload, ensure_ascii=False)
     with open(PLAIN, "w", encoding="utf-8") as f:
         f.write("// 公式LINE（Lメッセージ）予約の同期データ。個人情報を含むためGitHubには上げないこと。\n")
         f.write("window.LINE_BOOKINGS_SYNC = " + body + ";\n")
-    print(f"このMac用に書き出しました: LINE予約 {len(bookings)}件 / カレンダー {len(calendar)}件 / 当日の連絡 {len(visits)}件 / 顧客情報の連絡 {len(customer_updates)}件")
+    print(f"このMac用に書き出しました: LINE予約 {len(bookings)}件 / カレンダー {len(calendar)}件 / 当日の連絡 {len(visits)}件 / 顧客情報の連絡 {len(customer_updates)}件 / 経費 {len(expenses)}件")
 
-    digest = hashlib.sha256(json.dumps([bookings, calendar, window, visits, customer_updates, customer_merges, booking_fixes], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps([bookings, calendar, window, visits, customer_updates, customer_merges, booking_fixes, expenses], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     prev = open(STATE).read().strip() if os.path.exists(STATE) else ""
     if digest == prev:
         print("予約内容に変更なし → GitHubへの反映はスキップ")

@@ -2629,19 +2629,34 @@ function applyBookingFixes(list){
   });
   return n;
 }
+/* レンタルスペース（インスタベース・スペースマーケット）の利用料を経費に取り込む。同じ予約番号は二度入れない */
+function applyExpenseImports(list){
+  let n = 0;
+  if(!Array.isArray(db.expenses)) db.expenses = [];
+  (list||[]).forEach(e => {
+    if(!e || !e.id || !e.date || !(Number(e.amount) > 0)) return;
+    if(db.expenses.some(x => x.id === e.id)) return;
+    db.expenses.push({ id:e.id, date:e.date, status:'支払済み', paidDate:e.paidDate || e.date, category:e.category || '会場費',
+      amount:Number(e.amount), payee:e.payee || '', method:e.method || 'クレジットカード', accountId:e.accountId || 'acc_bank1',
+      note:e.note || '', source:e.source || '' });
+    n++;
+  });
+  return n;
+}
 /* 同期データ（LINE予約・カレンダー・当日の連絡）をまとめて反映 */
 function applySyncPayload(data){
   const r = mergeLineBookings(data.bookings || []);
   const c = mergeCalendarBookings(data.calendar || [], data.calendarWindow);
   const v = applyVisitInstructions(data.visits || []);
   const cu = applyCustomerUpdates(data.customerUpdates || []) + applyCustomerMerges(data.customerMerges || []) + applyBookingFixes(data.bookingFixes || []);
+  const ex = applyExpenseImports(data.expenses || []);
   db.settings.lineSyncedAt = data.syncedAt || db.settings.lineSyncedAt || '';
   refreshNextVisits();
   saveDb();
-  return { added:r.added + c.added, updated:r.updated + c.updated + cu, custAdded:r.custAdded + c.custAdded, visits:v };
+  return { added:r.added + c.added, updated:r.updated + c.updated + cu, custAdded:r.custAdded + c.custAdded, visits:v, expenses:ex };
 }
 function syncSummaryText(r){
-  return `予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件` + (r.visits ? ` / 売上登録: ${r.visits}件` : '');
+  return `予約を取り込みました\n新しい予約: ${r.added}件 / 新規顧客: ${r.custAdded}名 / 更新: ${r.updated}件` + (r.visits ? ` / 売上登録: ${r.visits}件` : '') + (r.expenses ? ` / 経費登録: ${r.expenses}件` : '');
 }
 
 /* 今後の予約があれば顧客の「次回来店予定」に反映（手入力の予定より早い場合のみ） */
@@ -2657,7 +2672,7 @@ function syncFromLineFile(){
   const s = window.LINE_BOOKINGS_SYNC;
   if(!s || !Array.isArray(s.bookings)) return;
   const r = applySyncPayload(s);
-  if(r.added || r.custAdded || r.visits || r.updated) setTimeout(() => alert(syncSummaryText(r)), 300);
+  if(r.added || r.custAdded || r.visits || r.updated || r.expenses) setTimeout(() => alert(syncSummaryText(r)), 300);
 }
 /* ---- スマホ／GitHub Pages用：合言葉で暗号化された予約データを取り込む ---- */
 const SYNC_PBKDF2_ITER = 200000; // tools/sync_line_bookings.py の ITER と揃える
@@ -2688,7 +2703,7 @@ async function syncFromEncrypted(){
     const r = applySyncPayload(data);
     encSyncState = 'ok';
     refreshAfterSync();
-    if(r.added || r.custAdded || r.visits) alert(syncSummaryText(r));
+    if(r.added || r.custAdded || r.visits || r.expenses) alert(syncSummaryText(r));
   } catch(e){ encSyncState = 'bad-pass'; refreshAfterSync(); }
 }
 function setSyncPass(){
