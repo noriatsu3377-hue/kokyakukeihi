@@ -293,7 +293,7 @@
             <div class="panel-body" style="padding-bottom:0;">
               <div class="field">
                 <label>顧客選択 (未選択時は匿名)</label>
-                <select id="pos-customer"></select>
+                <select id="pos-customer" onchange="posReferralChanged()"></select><div id="pos-referral-hint" class="text-sub"></div>
               </div>
             </div>
             <div class="cart-items" id="pos-cart-items">
@@ -318,6 +318,7 @@
           <button class="btn small" onclick="closeModal('payment-modal')">✕</button>
         </div>
         <div class="modal-body">
+          <div id="pay-referral"></div>
           <div class="row" style="display:flex; justify-content:space-between; font-size:24px; font-weight:bold; color:var(--primary); margin-bottom:20px;">
             <span>合計請求額</span><span id="pay-total-disp">¥0</span>
           </div>
@@ -548,6 +549,7 @@
           </div>
           <div class="field"><label>主訴・お悩み</label><textarea id="cust-complaint"></textarea></div>
           <div class="field"><label>備考</label><textarea id="cust-note"></textarea></div>
+          <div id="cust-referral" class="panel"></div>
           <div id="cust-kartes"></div>
           
           <button class="btn primary" style="width:100%; padding:12px; margin-top:10px;" onclick="saveCustomer()">保存する</button>
@@ -586,6 +588,7 @@
         <div class="modal-body">
           <input type="hidden" id="bk-visit-id">
           <div class="text-sub" id="bk-visit-request" style="margin-bottom:12px; white-space:pre-wrap;"></div>
+          <div id="bk-referral"></div>
           <div class="field"><label>実施コース</label><select id="bk-visit-menu" onchange="bkVisitMenuChanged()"></select></div>
           <div class="grid-cols-2">
             <div class="field"><label>料金（円）</label><input type="number" id="bk-visit-price" oninput="bkVisitCalc()"></div>
@@ -1017,6 +1020,7 @@ let db = {
 };
 
 function saveDb() {
+  referralSettings();
   localStorage.setItem(KEY_V5, JSON.stringify(db));
 }
 
@@ -1379,6 +1383,162 @@ function showView(name){
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 
+
+/* ==================== 紹介制度（既存データには任意フィールドのみ追加） ==================== */
+function referralSettings(){
+  const defaults = { expiry:'2027-03-31', discountRate:0.5, rewardAmount:1000,
+    notice:'紹介特典は今回1回のみです。ほかの割引とは併用できません。本日は紹介価格、次回からは正規価格になります。' };
+  db.settings.referral = { ...defaults, ...(db.settings.referral || {}) };
+  return db.settings.referral;
+}
+function referralData(c){
+  return { referrerId:'', sameHousehold:false, cardStatus:'未使用', cardUsedDate:'', cardMenu:'', cardPaidAmount:0,
+    cardTransactionId:'', lineFirstStatus:'未使用', cancelled:false, cancelNote:'', ...(c?.referral || {}) };
+}
+function unusedRewards(c){
+  return (c?.referralRewards || []).filter(r => !r.usedDate && !r.usedTransactionId)
+    .slice().sort((a,b) => (a.grantedDate||'').localeCompare(b.grantedDate||''));
+}
+function benefitTotal(price, discount, type){
+  const settings = referralSettings();
+  if(type === 'referral') return Math.max(0, Math.floor(price * (1 - settings.discountRate)));
+  if(type === 'reward1000') return Math.max(0, price - settings.rewardAmount);
+  return Math.max(0, price - discount);
+}
+function benefitError(c, type, date, discount){
+  if(!type) return '';
+  if(!['referral','reward1000','lineFirst'].includes(type)) return '特典の指定が正しくありません';
+  if(!c) return '特典を使う顧客を選択してください';
+  if(!date) return '利用日を入力してください';
+  const r = referralData(c);
+  if(type !== 'lineFirst' && discount !== 0) return 'ほかの割引とは併用できません。割引（円）を0にしてください';
+  if(type === 'referral'){
+    const referrer = db.customers.find(x => x.id === r.referrerId);
+    if(!referrer) return '顧客情報に紹介者を設定してください';
+    if(referrer.id === c.id || (normName(c.name) && normName(c.name) === normName(referrer.name)) ||
+      (!r.sameHousehold && digits(c.tel) && digits(c.tel) === digits(referrer.tel))) return '紹介者本人は紹介カードを利用できません';
+    if(r.cardStatus === '使用済み' || r.cardTransactionId || db.transactions.some(t => t.customerId === c.id && t.discountType === 'referral')) return '紹介カードはすでに使用済みです';
+    if(date > referralSettings().expiry) return '紹介カードの有効期限を過ぎています';
+  }
+  if(type === 'reward1000' && !unusedRewards(c).length) return '未使用の紹介お礼がありません';
+  if(type === 'lineFirst' && r.lineFirstStatus === '使用済み') return 'LINE初回特典はすでに使用済みです';
+  return '';
+}
+function referralPaid(tx){
+  return tx && !tx.isCancelled && db.payments.some(p => p.transactionId === tx.id && p.type === '入金' && p.amount > 0 && p.status !== '取消済');
+}
+function grantReferralReward(tx, paidDate){
+  if(tx?.discountType !== 'referral' || !referralPaid(tx)) return;
+  const c = db.customers.find(c => c.id === tx.customerId);
+  if(!c || referralData(c).cancelled) return;
+  const referrer = db.customers.find(x => x.id === referralData(c).referrerId);
+  if(!referrer || db.customers.some(x => (x.referralRewards||[]).some(r => r.fromCustomerId === c.id))) return;
+  const payment = db.payments.find(p => p.transactionId === tx.id && p.type === '入金' && p.amount > 0);
+  (referrer.referralRewards ||= []).push({ id:'rr_' + tx.id, grantedDate:paidDate || payment.date,
+    fromCustomerId:c.id, fromTransactionId:tx.id, usedDate:'', usedTransactionId:'' });
+}
+function finalizeBenefit(tx){
+  if(!tx.discountType) return;
+  const c = db.customers.find(c => c.id === tx.customerId);
+  if(!c) return;
+  c.referral = referralData(c);
+  if(tx.discountType === 'referral'){
+    Object.assign(c.referral, { cardStatus:'使用済み', cardUsedDate:tx.serviceDate || tx.date,
+      cardMenu:tx.items.map(i => i.menuName).join('、'), cardPaidAmount:tx.totalAmount,
+      cardTransactionId:tx.id, lineFirstStatus:'使用済み' });
+    grantReferralReward(tx);
+  } else if(tx.discountType === 'reward1000'){
+    const reward = unusedRewards(c)[0];
+    if(reward){ reward.usedDate = tx.serviceDate || tx.date; reward.usedTransactionId = tx.id; }
+  } else if(tx.discountType === 'lineFirst') c.referral.lineFirstStatus = '使用済み';
+}
+function cancelReferral(tx){
+  const c = db.customers.find(c => c.id === tx.customerId);
+  if(!c || (tx.discountType !== 'referral' && c.referral?.cardTransactionId !== tx.id)) return;
+  c.referral = referralData(c);
+  c.referral.cancelled = true;
+  db.customers.forEach(referrer => {
+    if(!referrer.referralRewards) return;
+    referrer.referralRewards = referrer.referralRewards.filter(r => {
+      if(r.fromTransactionId !== tx.id) return true;
+      if(!r.usedDate && !r.usedTransactionId) return false;
+      const note = '紹介カード取引を取消・返金しました。紹介者のお礼は使用済みのため保持しています。';
+      if(!c.referral.cancelNote.includes(note)) c.referral.cancelNote += (c.referral.cancelNote ? '\n' : '') + note;
+      return true;
+    });
+  });
+}
+function benefitNotice(prefix, type){
+  document.getElementById(prefix + '-benefit-notice').textContent = type === 'referral' ? referralSettings().notice : '';
+}
+function renderBenefitSelect(prefix, cid){
+  const c = db.customers.find(c => c.id === cid), count = unusedRewards(c).length;
+  document.getElementById(prefix + '-referral').innerHTML = `<div class="field"><label>特典</label>
+    <select id="${prefix}-benefit" onchange="${prefix === 'pay' ? 'payBenefitChanged()' : 'bkVisitCalc()'}">
+    <option value="">なし</option><option value="referral">紹介カード（50%OFF）</option>
+    <option value="reward1000" ${count ? '' : 'disabled'}>紹介お礼 1,000円OFF</option><option value="lineFirst">LINE初回特典</option></select></div>
+    <div class="text-sub">${count ? `未使用の1,000円OFFが${count}件あります` : ''}</div><div id="${prefix}-benefit-notice" class="text-sub"></div>`;
+}
+function payBenefitChanged(){
+  updateCartTotal();
+  document.getElementById('pay-total-disp').textContent = yen(currentCartTotal);
+  document.getElementById('pay-amount').value = currentCartTotal;
+  benefitNotice('pay', document.getElementById('pay-benefit').value);
+  calcUnpaid();
+}
+function posReferralChanged(){
+  const cid = document.getElementById('pos-customer').value;
+  const count = unusedRewards(db.customers.find(c => c.id === cid)).length;
+  document.getElementById('pos-referral-hint').textContent = count ? `未使用の1,000円OFFが${count}件あります` : '';
+  if(document.getElementById('pay-benefit')){ renderBenefitSelect('pay', cid); updateCartTotal(); }
+}
+function referralLaterVisits(c){
+  const r = referralData(c), first = db.transactions.find(t => t.id === r.cardTransactionId);
+  if(!r.cardUsedDate && !first) return [];
+  const date = first?.serviceDate || first?.date || r.cardUsedDate;
+  const index = first ? db.transactions.indexOf(first) : -1;
+  return db.transactions.filter((t,i) => t.customerId === c.id && t.id !== r.cardTransactionId && !t.isCancelled && t.discountType !== 'referral' &&
+    ((t.serviceDate || t.date) > date || ((t.serviceDate || t.date) === date && index >= 0 && i > index)))
+    .sort((a,b) => (a.serviceDate || a.date).localeCompare(b.serviceDate || b.date));
+}
+function renderCustomerReferral(c){
+  const r = referralData(c), later = c ? referralLaterVisits(c) : [], rewards = c?.referralRewards || [];
+  const referred = c ? db.customers.filter(x => x.referral?.referrerId === c.id && referralPaid(db.transactions.find(t => t.id === x.referral.cardTransactionId))).length : 0;
+  document.getElementById('cust-referral').innerHTML = `<div class="panel-head">紹介制度</div><div class="panel-body">
+    <div class="field"><label>紹介者</label><select id="cust-referrer"><option value="">未設定</option>${db.customers.filter(x => x.id !== c?.id).map(x => `<option value="${hEsc(x.id)}" ${x.id === r.referrerId ? 'selected' : ''}>${hEsc(x.name)}</option>`).join('')}</select></div>
+    <div class="field"><label><input type="checkbox" id="cust-household" ${r.sameHousehold ? 'checked' : ''}> 紹介者と同居の家族</label></div>
+    <div class="field"><label>紹介カード（会計から自動記録）</label><div>${hEsc(r.cardStatus)} ／ 使用日：${hEsc(r.cardUsedDate || '未使用')}<br>使用メニュー：${hEsc(r.cardMenu || '未設定')} ／ 支払額：${yen(Number(r.cardPaidAmount)||0)}</div></div>
+    <div class="field"><label>LINE初回特典</label><select id="cust-line-first"><option ${r.lineFirstStatus === '未使用' ? 'selected' : ''}>未使用</option><option ${r.lineFirstStatus === '使用済み' ? 'selected' : ''}>使用済み</option></select></div>
+    <div class="field">2回目来店日（正規価格）：${hEsc(later[0]?.serviceDate || later[0]?.date || '未設定')}<br>3回目来店日：${hEsc(later[1]?.serviceDate || later[1]?.date || '未設定')}</div>
+    <div class="field"><label><input type="checkbox" id="cust-ref-cancelled" ${r.cancelled ? 'checked' : ''}> 取消・返金あり</label><textarea id="cust-ref-note" placeholder="取消・返金のメモ">${hEsc(r.cancelNote)}</textarea></div>
+    <div>紹介した人数：${referred}人 ／ 未使用の1,000円OFF：${unusedRewards(c).length}件<br>1,000円OFFを使った日：${rewards.filter(x => x.usedDate).map(x => hEsc(x.usedDate)).join('、') || 'なし'}</div></div>`;
+}
+function renderReferralAnalysis(){
+  let el = document.getElementById('ana-referral');
+  if(!el){
+    el = document.createElement('div'); el.id = 'ana-referral'; el.className = 'panel';
+    el.innerHTML = '<div class="panel-head">紹介制度</div><div class="panel-body"><div class="field"><label>対象月</label><input type="month" id="ana-referral-month" onchange="renderReferralAnalysis()"></div><div id="ana-referral-results"></div></div>';
+    document.getElementById('view-analysis').appendChild(el);
+    document.getElementById('ana-referral-month').value = iso().slice(0,7);
+  }
+  const month = document.getElementById('ana-referral-month').value || iso().slice(0,7);
+  const cohort = db.customers.filter(c => (c.referral?.cardUsedDate || '').slice(0,7) === month);
+  let returned = 0, sales = 0;
+  cohort.forEach(c => {
+    const later = referralLaterVisits(c), second = later[0];
+    const days = second ? (Date.parse(second.serviceDate || second.date) - Date.parse(c.referral.cardUsedDate)) / 86400000 : -1;
+    if(days >= 0 && days <= 90) returned++;
+    const first = db.transactions.find(t => t.id === c.referral.cardTransactionId);
+    sales += (first && !first.isCancelled ? Number(first.totalAmount)||0 : 0) + later.reduce((sum,t) => sum + (Number(t.totalAmount)||0), 0);
+  });
+  const rewards = db.customers.flatMap(c => c.referralRewards || []);
+  const rate = cohort.length ? returned / cohort.length * 100 : 0;
+  document.getElementById('ana-referral-results').innerHTML = `<div>紹介カードで来た人数：${cohort.length}人</div>
+    <div>90日以内の2回目来店：${returned}人 <span class="badge ${rate < 50 ? 'red' : 'green'}">${rate.toFixed(1)}%</span>（目標50%以上）</div>
+    <div>紹介1件あたりの売上合計：${yen(cohort.length ? Math.floor(sales / cohort.length) : 0)}</div>
+    <div>1,000円OFF付与：${rewards.filter(r => (r.grantedDate||'').slice(0,7) === month).length}件 ／ 利用：${rewards.filter(r => (r.usedDate||'').slice(0,7) === month).length}件</div>`;
+}
+
 /* ==================== POS (売上・入金) ロジック ==================== */
 let cart = [];
 let currentCartTotal = 0;
@@ -1387,7 +1547,7 @@ function initPos() {
   // Populate customers
   const sel = document.getElementById('pos-customer');
   sel.innerHTML = '<option value="">匿名 (顧客未選択)</option>' + 
-    db.customers.map(c => `<option value="${c.id}">${c.name} 様</option>`).join('');
+    db.customers.map(c => `<option value="${hEsc(c.id)}">${hEsc(c.name)} 様</option>`).join('');
   
   // Populate categories dynamically
   const catSel = document.getElementById('pos-category');
@@ -1396,6 +1556,7 @@ function initPos() {
   catSel.innerHTML = '<option value="">すべて</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
   if (cats.includes(currentCat)) catSel.value = currentCat;
   
+  posReferralChanged();
   renderMenuGrid();
   renderCart();
   document.getElementById('pay-date').value = iso();
@@ -1456,12 +1617,14 @@ function renderCart() {
 function updateCartTotal() {
   let sub = cart.reduce((s, item) => s + (item.price * item.qty), 0);
   let discount = Number(document.getElementById('pos-discount').value) || 0;
-  currentCartTotal = Math.max(0, sub - discount);
+  currentCartTotal = benefitTotal(sub, discount, document.getElementById('pay-benefit')?.value || '');
   document.getElementById('pos-total').textContent = yen(currentCartTotal);
 }
 
 function openPaymentModal() {
   if(cart.length === 0) { alert("カートに商品がありません"); return; }
+  renderBenefitSelect('pay', document.getElementById('pos-customer').value);
+  updateCartTotal();
   document.getElementById('pay-total-disp').textContent = yen(currentCartTotal);
   document.getElementById('pay-amount').value = currentCartTotal;
   calcUnpaid();
@@ -1487,9 +1650,15 @@ function processTransaction() {
 
   if(!date) { alert("日付を入力してください"); return; }
 
+  const discountType = document.getElementById('pay-benefit')?.value || '';
+  const customer = db.customers.find(c => c.id === customerId);
+  const error = benefitError(customer, discountType, date, discount);
+  if(error){ alert(error); return; }
+  if(!cart.length){ alert('カートに商品がありません'); return; }
+  updateCartTotal();
   const tid = 't_' + Date.now();
   const tx = {
-    id: tid, date, serviceDate: date, customerId, totalAmount: currentCartTotal, discount,
+    id: tid, date, serviceDate: date, customerId, totalAmount: currentCartTotal, discount, discountType,
     items: cart.map(c => ({ menuName: c.name, price: c.price, quantity: c.qty })),
     location, note
   };
@@ -1504,12 +1673,14 @@ function processTransaction() {
     });
   }
 
+  finalizeBenefit(tx);
   saveDb();
   alert("売上を登録しました。");
   closeModal('payment-modal');
   
   // Reset cart
-  cart = []; document.getElementById('pos-discount').value = 0; renderCart();
+  cart = []; document.getElementById('pos-discount').value = 0;
+  document.getElementById('pay-benefit').value = ''; renderCart();
   showView('dashboard');
 }
 
@@ -1674,6 +1845,7 @@ function openCustomerModal() {
     document.getElementById('cust-'+id).value = '';
   });
   document.getElementById('cust-kartes').innerHTML = '';
+  renderCustomerReferral(null);
   openModal('customer-modal');
 }
 
@@ -1691,6 +1863,7 @@ function editCustomer(id) {
   document.getElementById('cust-complaint').value = c.complaint;
   document.getElementById('cust-note').value = c.note;
   renderCustomerKartes(c.id);
+  renderCustomerReferral(c);
   openModal('customer-modal');
 }
 
@@ -1709,6 +1882,12 @@ function saveCustomer() {
     note: document.getElementById('cust-note').value.trim()
   };
 
+  data.referral = { ...referralData(db.customers.find(c => c.id === id)),
+    referrerId: document.getElementById('cust-referrer').value,
+    sameHousehold: document.getElementById('cust-household').checked,
+    lineFirstStatus: document.getElementById('cust-line-first').value,
+    cancelled: document.getElementById('cust-ref-cancelled').checked,
+    cancelNote: document.getElementById('cust-ref-note').value.trim() };
   if(id) {
     const c = db.customers.find(x => x.id === id);
     if(c) { Object.assign(c, data); }
@@ -1790,6 +1969,7 @@ function saveAdditionalPayment() {
   if(!date || amount <= 0) { alert("正しい日付と金額を入力してください"); return; }
   
   const tx = db.transactions.find(t => t.id === txId);
+  if(!tx || tx.isCancelled){ alert('取消済み、または存在しない取引です'); return; }
   const pays = db.payments.filter(p => p.transactionId === txId).reduce((s,p) => s + (p.type === '返金' ? -p.amount : p.amount), 0);
   const unpaid = Math.max(0, tx.totalAmount - pays);
   
@@ -1804,6 +1984,7 @@ function saveAdditionalPayment() {
     id: 'p_' + Date.now(), transactionId: txId, date, amount, method, type: '入金',
     status: (method === 'クレジットカード' || method === '電子マネー') ? '決済完了' : '入金済み', fee: estimatedFee, accountId: (method === '現金' ? 'acc_cash' : 'acc_bank1')
   });
+  grantReferralReward(tx, date);
   saveDb();
   closeModal('payment-add-modal');
   renderHistory();
@@ -1838,7 +2019,9 @@ function processRefund() {
   
   const t = db.transactions.find(x => x.id === txId);
   if(!t) return;
+  if(t.isCancelled) return;
   t.isCancelled = true;
+  cancelReferral(t);
   
   const pays = db.payments.filter(p => p.transactionId === txId && p.type !== '返金');
   const paidTotal = pays.reduce((s,p)=>s+p.amount, 0);
@@ -1967,6 +2150,7 @@ function deleteExpense(id) {
 
 /* ==================== 分析 ロジック ==================== */
 function renderAnalysis() {
+  renderReferralAnalysis();
   const ts = getSales(null, null);
   const tp = getPayments(null, null);
   document.getElementById('ana-total-sales').textContent = yen(ts);
@@ -2855,6 +3039,7 @@ function openBookingVisit(id){
   document.getElementById('bk-visit-date').value = b.date || iso();
   document.getElementById('bk-visit-method').value = '未入金';
   document.getElementById('bk-visit-location').value = '';
+  renderBenefitSelect('bk', b.customerId);
   bkVisitCalc();
   openModal('bk-visit-modal');
 }
@@ -2864,7 +3049,9 @@ function bkVisitMenuChanged(){
   bkVisitCalc();
 }
 function bkVisitCalc(){
-  const t = Math.max(0, (Number(document.getElementById('bk-visit-price').value)||0) - (Number(document.getElementById('bk-visit-discount').value)||0));
+  const type = document.getElementById('bk-benefit')?.value || '';
+  benefitNotice('bk', type);
+  const t = benefitTotal(Number(document.getElementById('bk-visit-price').value)||0, Number(document.getElementById('bk-visit-discount').value)||0, type);
   document.getElementById('bk-visit-total').textContent = yen(t);
   return t;
 }
@@ -2878,19 +3065,24 @@ function saveBookingVisit(){
   const price = Number(document.getElementById('bk-visit-price').value)||0;
   const discount = Number(document.getElementById('bk-visit-discount').value)||0;
   const method = document.getElementById('bk-visit-method').value;
-  recordVisit(b, m, price, discount, method, date, document.getElementById('bk-visit-location').value);
+  const type = document.getElementById('bk-benefit').value;
+  const error = benefitError(db.customers.find(c => c.id === b.customerId), type, date, discount);
+  if(error){ alert(error); return; }
+  if(!recordVisit(b, m, price, discount, method, date, document.getElementById('bk-visit-location').value, '', type)) return;
   saveDb();
   closeModal('bk-visit-modal');
   renderBookings();
   alert(method === '未入金' ? '売上を登録しました（未入金）。入金は取引履歴から登録できます。' : '売上と入金を登録しました。');
 }
 
-function recordVisit(b, m, price, discount, method, date, location, note){
-  const total = Math.max(0, (Number(price)||0) - (Number(discount)||0));
+function recordVisit(b, m, price, discount, method, date, location, note, discountType = ''){
+  if(b.transactionId || db.transactions.some(t => t.bookingId === b.id)) return null;
+  if(benefitError(db.customers.find(c => c.id === b.customerId), discountType, date, Number(discount)||0)) return null;
+  const total = benefitTotal(Number(price)||0, Number(discount)||0, discountType);
   const tid = 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
   const srcNote = { 'LINE':'公式LINE予約', 'Googleカレンダー':'Googleカレンダー予約' }[b.source] || '予約';
   db.transactions.push({
-    id:tid, date, serviceDate:date, customerId:b.customerId||'', totalAmount:total, discount:Number(discount)||0,
+    id:tid, date, serviceDate:date, customerId:b.customerId||'', totalAmount:total, discount:Number(discount)||0, discountType,
     items:[{ menuName:m.name + (m.time?`（${m.time}）`:''), price:Number(price)||0, quantity:1 }],
     location:location||'', note: note ? srcNote + '／' + note : srcNote, bookingId:b.id
   });
@@ -2905,7 +3097,10 @@ function recordVisit(b, m, price, discount, method, date, location, note){
   b.visitStatus = '来店済み'; b.transactionId = tid; b.updatedAt = new Date().toISOString();
   const c = db.customers.find(x => x.id === b.customerId);
   if(c && c.nextVisit === b.date) c.nextVisit = '';
+  const tx = db.transactions.find(t => t.id === tid);
+  finalizeBenefit(tx);
   refreshNextVisits();
+  return tx;
 }
 
 /* ---- 当日の連絡（メニュー・支払い方法）を同期データから反映。登録済みの予約は二度登録しない ---- */
@@ -2920,6 +3115,7 @@ function applyVisitInstructions(list){
       if(!b){
         const nn = normName(v.customerName);
         let c = db.customers.find(x => normName(x.name) === nn);
+        if(benefitError(c, v.discountType || '', v.date, Number(v.discount)||0)) return;
         if(!c){
           c = { id:'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), createdAt:v.date, name:v.customerName, kana:'', tel:'', status:'', plan:'',
             nextVisit:'', complaint:'', note:'', followStatus:'', followDate:'' };
@@ -2935,12 +3131,13 @@ function applyVisitInstructions(list){
     if(b.transactionId){
       // 「未入金」で登録済みの売上に、あとから支払い方法の連絡が来た場合は入金だけ追加する
       const tx = db.transactions.find(t => t.id === b.transactionId);
-      if(tx && v.method && v.method !== '未入金' && !db.payments.some(p => p.transactionId === tx.id && p.type !== '返金')){
+      if(tx && !tx.isCancelled && tx.totalAmount > 0 && v.method && v.method !== '未入金' && !db.payments.some(p => p.transactionId === tx.id && p.type !== '返金')){
         db.payments.push({
           id:'p_' + tx.id, transactionId:tx.id, date:v.paidDate || tx.date, amount:tx.totalAmount, method:v.method,
           status:(v.method === 'クレジットカード' || v.method === '電子マネー') ? '決済完了' : '入金済み',
           type:'入金', fee:0, accountId:(v.method === '現金' ? 'acc_cash' : 'acc_bank1')
         });
+        grantReferralReward(tx, v.paidDate || tx.date);
         n++;
       }
       return;
@@ -2949,8 +3146,9 @@ function applyVisitInstructions(list){
     const m = findMenuById(v.menuId) || (db.settings.menus||[]).find(x => x.name === v.menuName && (!v.menuTime || x.time === v.menuTime))
       || (v.menuName && v.price ? { id:'', name:v.menuName, time:v.menuTime || '' } : null);
     if(!m) return;
-    recordVisit(b, m, v.price ?? m.price, v.discount || 0, v.method || '未入金', v.date || b.date, v.location || '', v.note || '');
-    n++;
+    const type = v.discountType || '';
+    if(benefitError(db.customers.find(c => c.id === b.customerId), type, v.date || b.date, Number(v.discount)||0)) return;
+    if(recordVisit(b, m, v.price ?? m.price, v.discount || 0, v.method || '未入金', v.date || b.date, v.location || '', v.note || '', type)) n++;
   });
   return n;
 }
